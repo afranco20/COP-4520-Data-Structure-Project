@@ -1,0 +1,283 @@
+Pseudo Code
+
+-------------- Data Types ------------------
+
+******* Hash-Cache Trie ********
+
+class SNode
+	val hash: Int
+	val key: KeyType
+	val value: ValueType
+	val txn: Any
+
+type ANode = Array<Any>
+
+val NoTxn
+
+val FSNode
+
+val FVNode
+
+class FNode
+	val frozen: Any
+
+class ENode
+	val parent: ANode
+	val parentpos: Int
+	val narrow: ANode
+	val hash: Int
+	val level: Int
+	val wide: ANode
+
+class CacheTrie
+	val root = new ANode(16)
+
+******* Auxilary Cache ********
+
+type Cache = Array<Any>
+
+class CacheNode
+	val parent: Array<Any>
+	val misses: Array<Int>
+
+******* MODIFIED CACHETRIE CLASS W/ CACHE OBJECT ********	
+
+class CacheTrie
+	val root = new ANode(16)
+	var cacheHead: Cache = null
+	
+
+-------------- Functions ------------------	
+
+******* Cache Helper *********
+
+def createCache(level: Int, parent: Cache): Cache = 
+	val cache = new Array(1 + (1 << level))
+	val misses = new Array(THROUGHPUT_FACTOR * #CPU)
+	cache[0] = new CacheNode(null, 8, misses)
+	return cache
+
+******** Lookup ***********
+
+key: unique identifier
+hash: hash code
+level: determines which part of the hash to use
+cur: the array (ANode) to traverse thru
+
+def lookup(key: KeyType, hash: Int, level: Int, cur: ANode): ValueType =
+
+	// Amount of bits extracted determined by cur length: 2 or 4 bits
+	val pos = (hash >>> level) && (cur.length - 1)
+
+	// Check what is in that position in the current position
+	val old = READ(cur[pos])
+
+	// If it's empty or marked as to not modify the empty value
+	// There is no corresponding key in the cache trie
+	if (old == null || old == FVNode)
+		return null
+
+	// There is another array (ANode) so jump to the next array (ANode)
+	else if (old is an ANode)
+		return lookup(key, hash, level + 4, old)
+
+	// Reached a node with the same hash bits so far, check if the keys match	
+	else if (old is an SNode)
+		if (old.key == key)
+			return old.value
+		else
+			return null
+
+	// If marked for expansion, check what's currently in the temp (narrow) ANode
+	else if (old is an ENode)
+		val an = old.narrow
+
+		// Linearization point
+		return lookup(key, hash, level + 4, an)
+
+	// If frozen, check the ANode contained
+	else if (old is an FNode)
+		return lookup(key, hash, level, level + 4, old.frozen)
+
+// Initial call to lookup
+def lookup(key: KeyType): ValueType =
+	lookup(key, hash(key), 0, root)
+
+
+
+
+******** Insert *********
+
+def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode): Boolean =
+	
+	// Get position in ANode according to size of ANode, level and hash code
+	val pos = (h >>> lev) && (cur.length - 1)
+
+	// Check what is at the current position
+	val old = READ(cur[pos])
+
+	// If current position is empty
+	if (old == null)
+		val sn = new SNode(h, k, v, NoTxn)
+		// Check nothing has changed, then insert
+		if (CAS(cur[pos], old, sn))
+			return true
+		// Collision, restart at next level
+		else
+			return insert(k, v, h, lev + 4, old, cur)
+
+	// If there is another array at position, jump to that array
+	else if (old is an ANode)
+		return insert(k, v, h, lev + 4, old, cur)
+
+	// If we found an entry with the current hash bits
+	else if (old is an SNode)
+
+		// Check if it has a special value
+		val txn = READ(old.txn)
+
+		// We're allowed to modify the node
+		if (txn == NoTxn)
+
+			// If we want to insert a node with the same key
+			if (old.key == key)
+
+				val sn = new SNode(h, k, v, NoTxn)
+
+				// Check if nothing has changed and announce that there is new SNode
+				if(CAS(old.txn, NoTxn, sn))
+
+					// Insert the actual new SNode
+					CAS(cur[pos], old, sn)
+					return true
+
+				// Failed to announce there is new SNode so restart
+				else
+					return insert(k, v, h, lev, cur, prev)
+
+			// Check if ANode is narrow, create ENode to announce expansion
+			else if (cur.length == 4)
+
+				// Save the position in the parent
+				val ppos = (h >>> (lev - 4)) && (prev.length - 1)
+
+				val en = new ENode(prev, ppos, cur, h, lev)
+
+				// Check that the parent of the current ANode still contains current and then insert the ENode
+				if(CAS(prev[ppos], cur, en))
+
+					completeExpansion(en)
+					val wide = READ(en.wide)
+
+					// Restart insertion with the wide ANode in the new ENode
+					return insert(k, v, h, lev, wide, prev)
+
+				// Failed to insert ENode so restart	
+				else
+					return insert(k, v, h, lev, cur, prev)
+
+			// If ANode is already wide
+			else
+				val sn = new SNode(h, k, v, NoTxn)
+
+				// Creates a new ANode with the new and old SNode
+				val an = createANode(old, sn, lev + 4)
+
+				// Check if nothing has changed, replace old ANode with new ANode
+				if(CAS(old.txn, NoTxn, an))
+					CAS(cur[pos], old, an)
+					return true
+				// Failed so restart
+				else
+					return insert(k, v, h, lev, cur, prev)
+
+		// Frozen SNode so unable to make changes, returns back up to the ENode in control of this SNode
+		else if (txn == FSNode)
+			return false
+
+		// If SNode or ANode, help complete concurrent insertion
+		else
+			// Help update cur[pos] to value at txn
+			CAS(cur[pos], old, txn)
+			return insert(k, v, h, lev, cur, prev)
+
+	// Help concurrent expansion
+	else if (old is an ENode)
+		completeExpansion(old)
+
+	// If FVNode or FNode
+	return false ?
+
+// Initial call	
+def insert(k: KeyType, v: ValueType) = 
+	if(!insert(k, v, hash(k), 0, root, null))
+		insert(k, v)	
+
+****** Freeze n Expand ********
+
+def completeExpansion(en: ENode) = 
+
+	// Prevent further updates to narrow
+	freeze(en.narrow)
+
+	var wide = new Array<Any>(16)
+
+	// Copy values of narrow into wide
+	copy(en.narrow, wide, en.level)
+
+	// Fail to update wide in ENode, take the wide that is there
+	if (!CAS(en.wide, null, wide))
+		wide = READ(en.wide)
+
+	// Replace the ENode, in the ANode that contains it, with wide
+	CAS(en.parent[en.parentpos], en, wide)
+
+// Traverse thru ANode and freeze its entries
+def freeze(cur: ANode) =
+	var i = 0
+	while (i < cur.length)
+		val node = READ(cur[i])
+
+		// If null entry, replace with FVNode
+		if (node == null)
+
+			// If fail to replace, reiterate over entry
+			if (!CAS(cur[i], node, FVNode)) 
+				i -= 1
+
+		// If there is a non null entry
+		else if (node is an SNode)
+			val txn = READ(node.txn)
+
+			// If no special flag, assign FSNode flag
+			if (txn == NoTxn)
+				// Fail to flag with FSNode, reiterate over entry
+				if (!CAS(node.txn, NoTxn, FSNode))
+					i -= 1
+
+			// If assigned any other flag besides none or FSNode
+			else if (txn != FSNode)
+
+				// Replace the current entry with whatever is in txn
+				// and then reiterate over the entry
+				CAS(cur[i], node, txn)
+				i -= 1
+
+		// If nested ANode, put in FNode wrapper
+		else if (node is an ANode)
+			val fn = new FNode(node)
+
+			// Replace current entry with new FNode and reiterate over entry
+			CAS(cur[i], node, fn)
+			i -= 1
+
+		// If ANode is in an FNode, make sure its entries are frozen too
+		else if (node is an FNode)
+			freeze(node.frozen)
+
+		// If nested ENode, finish children expansions first then reiterate over entry
+		else if (node is an ENode)
+			completeExpansion(node)
+			i -= 1
+
+		i += 1
