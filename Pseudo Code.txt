@@ -206,12 +206,57 @@ def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode):
 		completeExpansion(old)
 
 	// If FVNode or FNode
-	return false ?
+	return false
 
 // Initial call	
 def insert(k: KeyType, v: ValueType) = 
 	if(!insert(k, v, hash(k), 0, root, null))
-		insert(k, v)	
+		insert(k, v)
+
+******* Modified Lookup + Fast Lookup (with aux Cache) *******
+
+def lookup(k: KeyType, hash: Int, lev: Int, cur: ANode, lastCachee: Any, cacheLevel: Int) =
+	if (lev == cacheLevel)
+		inhabit(cache, cur, hash, lev)
+	val pos = position(cur, hash, lev)
+	...
+	else if(old is an SNode)
+		if (lev is not in the range [cacheLevel, cacheLevel + 4])
+			recordCacheMiss()
+		if (lev + 4 == cacheLevel)
+			inhabit(cache, old, hash, lev + 4)
+		if (old.key == key)
+	...
+			return lookup(key, hash, level + 4, old.frozen)
+
+def fastLookup(k: KeyType): ValueType = 
+	val h = hash(k)
+	var cache = READ(cacheHead)
+	if (cache == null)
+		return lookup(k, h, 0, root, null, -1)
+	val topLevel = countTrailingZeros(cache.length - 1)
+	while (cache != null)
+		val pos = 1 + (h && (cache.length - 2))
+		val cachee = READ(cache[pos])
+		val level = countTrailingZeros(cache.length - 1)
+		if (cachee is an SNode)
+			val txn = READ(old.txn)
+			if (txn == NoTxn)
+				if (cachee.key == k)
+					return cachee.value
+				else
+					return null
+		else if (cachee is an ANode)
+			val cpos = (h >>> level) && (cachee.length - 1)
+			val old = READ(cachee[cpos])
+			if (old == FVNode || old is an FNode)
+				continue
+			if (old is an SNode)
+				if (READ(old.txn) == FSNode)
+					continue
+			return lookup(k, h, level, cachee, level)
+		cache = cache[0].parent
+	return lookup(k, h, 0, root, null, topLevel)	
 
 ****** Freeze n Expand ********
 
@@ -281,3 +326,27 @@ def freeze(cur: ANode) =
 			i -= 1
 
 		i += 1
+
+******* Inhabit (Populate cache) ********
+
+def inhabit(cache: Array[AnyRef], nv: Any, hash: Int, cacheeLevel: Int) = 
+	if (cache == null)
+		if (cacheeLevel >= 12)
+			cache = createCache(8, null)
+			CAS(cacheHead, null, cache)
+			inhabit(cache, nv, hash, cacheeLevel)
+	else
+		val length = cache.length
+		val cacheLevel = countTrailingZeros(length - 1)
+		if (cacheLevel == cacheeLevel)
+			val pos = 1 + (hash && (cache.length - 2))
+			WRITE(cache[pos], nv)
+
+******* Cache Misses and Sampling ********
+
+def recordCacheMiss() = 
+	val cache = READ(cacheHead)
+	if (cache != null)
+		val cn = cache[0]
+		val counterId = THREAD_ID % cn.misses.length
+		val c
