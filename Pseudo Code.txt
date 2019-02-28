@@ -349,4 +349,16 @@ def recordCacheMiss() =
 	if (cache != null)
 		val cn = cache[0]
 		val counterId = THREAD_ID % cn.misses.length
-		val c
+		val count = READ(cn.misses[counterId])
+		if (count > MAX_MISSES)
+			WRITE(cn.misses[counterId], 0)
+			sampleAndAdjustCache(cache)
+		else
+			WRITE(cn.misses[counterId], count + 1)
+
+def sampleAndAdjustCache(cache: Array<Any>) = 
+	val histogram = sampleSNodesLevels()
+	val best = findMostPopulatedLevel(histogram)
+	val prev = countTrailingZeros(cache.length - 1)
+	if (histogram[best] > histogram[prev] * 1.5)
+		adjustCacheLevel(best)			
