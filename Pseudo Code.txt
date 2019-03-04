@@ -215,13 +215,18 @@ def insert(k: KeyType, v: ValueType) =
 
 ******* Modified Lookup + Fast Lookup (with aux Cache) *******
 
+// "Slow" lookup
 def lookup(k: KeyType, hash: Int, lev: Int, cur: ANode, lastCachee: Any, cacheLevel: Int) =
+	
+	// If a node is at the same level as in the cache
 	if (lev == cacheLevel)
 		inhabit(cache, cur, hash, lev)
 	val pos = position(cur, hash, lev)
 	...
 	else if(old is an SNode)
-		if (lev is not in the range [cacheLevel, cacheLevel + 4])
+
+		// If not contained at same level as cache or just one deeper
+		if (lev is not [cacheLevel or cacheLevel + 4])
 			recordCacheMiss()
 		if (lev + 4 == cacheLevel)
 			inhabit(cache, old, hash, lev + 4)
@@ -231,31 +236,59 @@ def lookup(k: KeyType, hash: Int, lev: Int, cur: ANode, lastCachee: Any, cacheLe
 
 def fastLookup(k: KeyType): ValueType = 
 	val h = hash(k)
+
+	// cacheHead is in scope, appears to be global
 	var cache = READ(cacheHead)
+
+	// If there is no cache, start at the root
 	if (cache == null)
 		return lookup(k, h, 0, root, null, -1)
+
+	// ??? Highest level ?
 	val topLevel = countTrailingZeros(cache.length - 1)
+
+	// Starts at the deepest level in cache
+	// while we don't encounter a null cache entry
 	while (cache != null)
 		val pos = 1 + (h && (cache.length - 2))
 		val cachee = READ(cache[pos])
 		val level = countTrailingZeros(cache.length - 1)
+
+		// Found an entry with the current key bits
 		if (cachee is an SNode)
 			val txn = READ(old.txn)
 			if (txn == NoTxn)
+				// Found it
 				if (cachee.key == k)
 					return cachee.value
+
+				// Couldn't find the node w/ key
 				else
 					return null
+
+		// Found a level with the current key bits
 		else if (cachee is an ANode)
+
+			// Find and read the entry with the current bits
 			val cpos = (h >>> level) && (cachee.length - 1)
 			val old = READ(cachee[cpos])
+
+			// Continue to next if frozen ANode or frozen empty entry?
 			if (old == FVNode || old is an FNode)
 				continue
+
+			// Continue to next if we find a frozen entry
 			if (old is an SNode)
 				if (READ(old.txn) == FSNode)
 					continue
+
+			// Go to regular lookup to update cache if necessary
 			return lookup(k, h, level, cachee, level)
+
+		// Go up?(maybe down not sure) a level in the cache
 		cache = cache[0].parent
+
+	// Could not find in the cache, start at the highest level
 	return lookup(k, h, 0, root, null, topLevel)	
 
 ****** Freeze n Expand ********
@@ -330,35 +363,69 @@ def freeze(cur: ANode) =
 ******* Inhabit (Populate cache) ********
 
 def inhabit(cache: Array[AnyRef], nv: Any, hash: Int, cacheeLevel: Int) = 
+	
+	// Create cache only if hash trie has at least a level 12
 	if (cache == null)
 		if (cacheeLevel >= 12)
+
+			// Intialize cache with one level less than the least amount of levels needed
 			cache = createCache(8, null)
+
+			// Update that there is now a cache avaliable
 			CAS(cacheHead, null, cache)
+
+			// Recursively call to insert value
 			inhabit(cache, nv, hash, cacheeLevel)
+
+	// Cache exists
 	else
 		val length = cache.length
 		val cacheLevel = countTrailingZeros(length - 1)
 		if (cacheLevel == cacheeLevel)
 			val pos = 1 + (hash && (cache.length - 2))
+
+			// Do not need CAS, just need the most recent value
+			// Cache need not be entirely consistent
 			WRITE(cache[pos], nv)
 
 ******* Cache Misses and Sampling ********
 
+// Neither of these functions are linearlizable 
+// "Lack of consistency tolerable, ... worst case, race condition during sampling
+// could select an incorrect level, but this is rare, and it gets corrected in the
+// next sampling pass."
+
 def recordCacheMiss() = 
 	val cache = READ(cacheHead)
+
+	// If a cache exists
 	if (cache != null)
 		val cn = cache[0]
+
+		// Read the count in the misses array according to thread
 		val counterId = THREAD_ID % cn.misses.length
 		val count = READ(cn.misses[counterId])
+
+		// Reset counter and adjust the cache level
 		if (count > MAX_MISSES)
 			WRITE(cn.misses[counterId], 0)
 			sampleAndAdjustCache(cache)
+
+		// Increase the miss counter for the current thread
 		else
 			WRITE(cn.misses[counterId], count + 1)
 
 def sampleAndAdjustCache(cache: Array<Any>) = 
+	
+	// Pick random hash code and records the num of SNodes at each level
 	val histogram = sampleSNodesLevels()
+
+	// Find the most populated (consecuted pair) level of levels
 	val best = findMostPopulatedLevel(histogram)
+
+	// Might not be as populated but pretty populate in comparision to most levels
 	val prev = countTrailingZeros(cache.length - 1)
+
+	// Adjust if the most populated level is 1.5 more popular than other level
 	if (histogram[best] > histogram[prev] * 1.5)
 		adjustCacheLevel(best)			
