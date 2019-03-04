@@ -67,7 +67,7 @@ cur: the array (ANode) to traverse thru
 def lookup(key: KeyType, hash: Int, level: Int, cur: ANode): ValueType =
 
 	// Amount of bits extracted determined by cur length: 2 or 4 bits
-	val pos = (hash >>> level) && (cur.length - 1)
+	val pos = (hash >>> level) & (cur.length - 1)
 
 	// Check what is in that position in the current position
 	val old = READ(cur[pos])
@@ -97,7 +97,7 @@ def lookup(key: KeyType, hash: Int, level: Int, cur: ANode): ValueType =
 
 	// If frozen, check the ANode contained
 	else if (old is an FNode)
-		return lookup(key, hash, level, level + 4, old.frozen)
+		return lookup(key, hash, level + 4, old.frozen)
 
 // Initial call to lookup
 def lookup(key: KeyType): ValueType =
