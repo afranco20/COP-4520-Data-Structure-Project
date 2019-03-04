@@ -111,7 +111,7 @@ def lookup(key: KeyType): ValueType =
 def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode): Boolean =
 	
 	// Get position in ANode according to size of ANode, level and hash code
-	val pos = (h >>> lev) && (cur.length - 1)
+	val pos = (h >>> lev) & (cur.length - 1)
 
 	// Check what is at the current position
 	val old = READ(cur[pos])
@@ -159,7 +159,7 @@ def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode):
 			else if (cur.length == 4)
 
 				// Save the position in the parent
-				val ppos = (h >>> (lev - 4)) && (prev.length - 1)
+				val ppos = (h >>> (lev - 4)) & (prev.length - 1)
 
 				val en = new ENode(prev, ppos, cur, h, lev)
 
