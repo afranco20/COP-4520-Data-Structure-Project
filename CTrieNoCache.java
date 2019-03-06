@@ -3,15 +3,20 @@ import java.util.concurrent.atomic.*;
 
 public class CTrieNoCache {
 	
-	private static final Object NoTxn = "NoTxn";
-	private static final Object FSNode = "FSNode";
-	private static final Object FVNode = "FVNode";
+	private static final Object NOTXN = "NOTXN";
+	private static final Object FSNODE = "FSNODE";
+	private static final Object FVNODE = "FVNODE";
+	private static final Object ANODE = "ANODE";
+	private static final Object SNODE = "SNODE";
+	private static final Object ENODE = "ENODE";
+	private static final Object FNODE = "FNODE";
 
-	static class SNode {
+	class SNode {
 		int hash;
 		Key key;
 		Object value;
 		AtomicReference<Object> txn;
+		Object nodeType = SNODE;
 
 		SNode (int h, Key k, Object val, Object type) {
 			hash = h;
@@ -21,8 +26,9 @@ public class CTrieNoCache {
 		}
 	}
 
-	static class ANode {
+	class ANode {
 		AtomicReferenceArray<Object> array;
+		Object nodeType = ANODE;
 		ANode (int length) {
 			array = new AtomicReferenceArray<Object>(length);
 		}
@@ -44,13 +50,15 @@ public class CTrieNoCache {
 	}
 
 	// Not sure about making parent and wide atomic, if so might need narrow atomic as well
-	static class ENode {
+	class ENode {
 		AtomicReference<ANode> parent;
 		int parentpos;
 		ANode narrow;
 		int hash;
 		int level;
 		AtomicReference<ANode> wide;
+		Object nodeType = ENODE;
+
 		ENode(ANode prev, int ppos, ANode curr, int h, int lev) {
 			parent = new AtomicReference<ANode>(prev);
 			parentpos = ppos;
@@ -60,8 +68,9 @@ public class CTrieNoCache {
 		}
 	}
 
-	static class FNode {
+	class FNode {
 		ANode frozen;
+		Object nodeType = FNODE;
 		FNode(ANode node) {
 			frozen = node;
 		}
@@ -83,8 +92,8 @@ public class CTrieNoCache {
 		int pos = ((hash >>> level) & ((curr.array).length() - 1));
 		Object old = READ(curr, pos);
 
-		// Not sure about "old == FVNode"
-		if(old == null || old == FVNode)
+		// Not sure about "old == FVNODE"
+		if(old == null || old == FVNODE)
 			return null;
 		else if(old instanceof ANode)
 			return lookup(key, hash, level + 4, (ANode) old);
@@ -117,14 +126,14 @@ public class CTrieNoCache {
 		while(i < curr.array.length()) {
 			Object node = curr.array.get(i);
 			if(node == null) 
-				if(!curr.array.compareAndSet(i, node, FVNode))
+				if(!curr.array.compareAndSet(i, node, FVNODE))
 					i -= 1;
 			else if(node instanceof SNode) {
 				Object txn = ((SNode)node).txn.get();
-				if(txn == NoTxn)
-					if(!((SNode)node).txn.compareAndSet(NoTxn, FSNode))
+				if(txn == NOTXN)
+					if(!((SNode)node).txn.compareAndSet(NOTXN, FSNODE))
 						i -= 1;
-				else if(txn != FSNode) {
+				else if(txn != FSNODE) {
 					curr.array.compareAndSet(i, node, txn);
 					i -= 1;
 				}
@@ -160,7 +169,7 @@ public class CTrieNoCache {
 		Object old = READ(curr, pos);
 
 		if(old == null) {
-			SNode sn = new SNode(h, k, v, NoTxn);
+			SNode sn = new SNode(h, k, v, NOTXN);
 			
 			if(curr.array.compareAndSet(pos, old, sn))
 				return true;
@@ -173,10 +182,10 @@ public class CTrieNoCache {
 
 		else if(old instanceof SNode) {
 			Object txn = ((SNode)old).txn.get();
-			if(txn == NoTxn) {
+			if(txn == NOTXN) {
 				if(((SNode)old).key == k) {
-					SNode sn = new SNode(h, k, v, NoTxn);
-					if(((SNode)old).txn.compareAndSet(NoTxn, sn)) {
+					SNode sn = new SNode(h, k, v, NOTXN);
+					if(((SNode)old).txn.compareAndSet(NOTXN, sn)) {
 						curr.array.compareAndSet(pos, (SNode)old, sn);
 						return true;
 					}
@@ -199,10 +208,10 @@ public class CTrieNoCache {
 				}
 				else {
 					
-					SNode sn = new SNode(h, k, v, NoTxn);
+					SNode sn = new SNode(h, k, v, NOTXN);
 					ANode an = createWide((SNode)old, sn, lev + 4);
 
-					if(((SNode)old).txn.compareAndSet(NoTxn, an)) {
+					if(((SNode)old).txn.compareAndSet(NOTXN, an)) {
 						curr.array.compareAndSet(pos, old, an);
 						return true;
 					}
@@ -210,7 +219,7 @@ public class CTrieNoCache {
 						return insert(k, v, h, lev, curr, prev);
 				}
 			}
-			else if(txn == FSNode)
+			else if(txn == FSNODE)
 				return false;
 			else {
 				curr.array.compareAndSet(pos, old, txn);
@@ -223,7 +232,7 @@ public class CTrieNoCache {
 	}
 
 	public static void main(String[] args) {
-		if("NoTx" == NoTxn)
+		if("NoTx" == NOTXN)
 			System.out.println("Hello World");	
 	}
 }

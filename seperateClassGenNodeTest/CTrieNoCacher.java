@@ -43,43 +43,50 @@ public class CTrieNoCacher {
 	}
 
 	ANode createWide(SNode old, SNode newVal, int bothLev) {
-		ANode wide = new ANode(16);
+		GenNode wide = new GenNode(16);
 		return populateWide(wide, old, newVal, bothLev);
 	}
 
-	ANode root;
+	GenNode root;
 
 	CTrieNoCacher () {
-		root = new ANode(16);
+		root = new GenNode(16);
 	}
 
-	Object READ (ANode curr, int pos) {
-		AtomicReferenceArray<Object> refCurr = curr.array;
-		return refCurr.get(pos);
+	GenNode READ (GenNode curr, int pos) {
+		AtomicReferenceArray<GenNode> refCurr = ((ANode)curr.node).array;
+		return ((GenNode) refCurr.get(pos));
 	}
 
+	T lookupInit(Key k) {
+		SNode result = lookup(k, hash(k), 0, (ANode) root.node);
+		if(result != null)
+			return result.value;
+		else
+			return null;
+	}
 
-	Object lookup(Key key, int hash, int level, ANode curr) {
+	SNode lookup(Key key, int hash, int level, ANode curr) {
 		int pos = ((hash >>> level) & ((curr.array).length() - 1));
-		Object old = READ(curr, pos);
+		GenNode old = READ(curr, pos);
 
 		// Not sure about "old == FVNODE"
-		if(old == null || old == FVNODE)
+		if(old == null || old.nodeType == FVNODE)
 			return null;
-		else if(old instanceof ANode)
-			return lookup(key, hash, level + 4, (ANode) old);
-		else if(old instanceof SNode) {
-			if(((SNode)old).key == key)
-				return ((SNode)old).value;
+		else if(old.nodeType == ANODE)
+			return lookup(key, hash, level + 4, (ANode) old.node);
+		else if(old.nodeType == SNODE) {
+			if(((SNode)old.node).key == key)
+				return (SNode)old.node;
 			else
 				return null;
 		}
-		else if(old instanceof ENode) {
-			ANode an = ((ENode)old).narrow;
+		else if(old.nodeType == ENODE) {
+			ANode an = ((ENode)old.node).narrow;
 			return lookup(key, hash, level + 4, an);
 		}
-		else if(old instanceof FNode)
-			return lookup(key, hash, level + 4, ((FNode) old).frozen);
+		else if(old.nodeType == FNODE)
+			return lookup(key, hash, level + 4, ((FNode) old.node).frozen);
 		else
 		{
 			System.out.println("Something went wrong");
@@ -92,29 +99,33 @@ public class CTrieNoCacher {
 
 	}
 
+	// Need to fix, ANodes array may need to be composed of GenNodes since there is no
+	// way to determine if something is an ANode or SNode, unless make yet another wrapper class
+	// for only ANode array entries
+	// Txn incorporated in genNode node type field
 	void freeze(ANode curr) {
 		int i = 0;
 		while(i < curr.array.length()) {
-			Object node = curr.array.get(i);
+			GenNode node = new GenNode(curr.array.get(i));
 			if(node == null) 
 				if(!curr.array.compareAndSet(i, node, FVNODE))
 					i -= 1;
-			else if(node instanceof SNode) {
-				Object txn = ((SNode)node).txn.get();
+			else if(node.nodeType == SNode) {
+				Object txn = ((SNode)node.node).txn.get();
 				if(txn == NOTXN)
-					if(!((SNode)node).txn.compareAndSet(NOTXN, FSNODE))
+					if(!((SNode)node.node).txn.compareAndSet(NOTXN, FSNODE))
 						i -= 1;
 				else if(txn != FSNODE) {
 					curr.array.compareAndSet(i, node, txn);
 					i -= 1;
 				}
 			}
-			else if(node instanceof ANode) {
-				FNode fn = new FNode((ANode)node);
+			else if(node.node == ANODE) {
+				GenNode fn = new GenNode((ANode)node.node);
 				curr.array.compareAndSet(i, node, fn);
 				i -= 1;
 			}
-			else if(node instanceof FNode)
+			else if(node.nodeType == FNode)
 				freeze(((FNode)node).frozen);
 			else if(node instanceof ENode) {
 				completeExpansion((ENode)node);
@@ -127,37 +138,43 @@ public class CTrieNoCacher {
 
 	void completeExpansion(ENode en) {
 		freeze(en.narrow);
-		ANode wide = new ANode(16);
-		copy(en.narrow, wide, en.level);
+		GenNode wide = new GenNode(16);
+		copy(en.narrow, (ANode)wide.node, en.level);
 
-		if(!en.wide.compareAndSet(null, wide))
-			wide = en.wide.get();
-		(en.parent.get()).array.compareAndSet(en.parentpos, en, wide);
+		if(!en.wide.compareAndSet(null, (ANode)wide.node))
+			wide.node = en.wide.get();
+		(en.parent.get()).array.compareAndSet(en.parentpos, en, (ANode)wide.node);
+	}
+
+	void initInsert(Key k, T v) {
+
+		if(!insert(k, v, hash(k), 0, (ANode) root.node, null))
+			insert(k, v);
 	}
 
 	boolean insert(Key k, Object v, int h, int lev, ANode curr, ANode prev) {
 		int pos = ((h >>> lev) & (curr.array.length() - 1));
-		Object old = READ(curr, pos);
+		GenNode old = READ(curr, pos);
 
 		if(old == null) {
-			SNode sn = new SNode(h, k, v, NOTXN);
+			GenNode sn = new GenNode(h, k, v, NOTXN);
 			
-			if(curr.array.compareAndSet(pos, old, sn))
+			if(curr.array.compareAndSet(pos, (ANode)old, (SNode)sn.node))
 				return true;
 			else
 				return insert(k, v, h, lev + 4, (ANode)old, curr);
 		}
 
-		else if(old instanceof ANode)
-			return insert(k, v, h, lev + 4, (ANode) old, curr);
+		else if(old.nodeType == ANODE)
+			return insert(k, v, h, lev + 4, (ANode) old.node, curr);
 
-		else if(old instanceof SNode) {
-			Object txn = ((SNode)old).txn.get();
+		else if(old.nodeType == SNODE) {
+			Object txn = ((SNode)old.node).txn.get();
 			if(txn == NOTXN) {
-				if(((SNode)old).key == k) {
-					SNode sn = new SNode(h, k, v, NOTXN);
-					if(((SNode)old).txn.compareAndSet(NOTXN, sn)) {
-						curr.array.compareAndSet(pos, (SNode)old, sn);
+				if(((SNode)old.node).key == k) {
+					GenNode sn = new GenNode(h, k, v, NOTXN);
+					if(((SNode)old.node).txn.compareAndSet(NOTXN, (SNode)sn.node)) {
+						curr.array.compareAndSet(pos, (SNode)old.node, (SNode) sn.node);
 						return true;
 					}
 					else
@@ -165,12 +182,12 @@ public class CTrieNoCacher {
 				}
 				else if(curr.array.length() == 4) {
 					int ppos = ((h >>> (lev - 4)) & (prev.array.length() - 1));
-					ENode en = new ENode(prev, ppos, curr, h, lev);
+					GenNode en = new GenNode(prev, ppos, curr, h, lev);
 
-					if(prev.array.compareAndSet(ppos, curr, en)) {
+					if(prev.array.compareAndSet(ppos, curr, (ENode)en.node)) {
 						
-						completeExpansion(en);
-						ANode wide = en.wide.get();
+						completeExpansion((ENode) en.node);
+						ANode wide = ((ENode) en.node).wide.get();
 						
 						return insert(k, v, h, lev, wide, prev);
 					}
@@ -179,11 +196,11 @@ public class CTrieNoCacher {
 				}
 				else {
 					
-					SNode sn = new SNode(h, k, v, NOTXN);
-					ANode an = createWide((SNode)old, sn, lev + 4);
+					GenNode sn = new GenNode(h, k, v, NOTXN);
+					ANode an = createWide((SNode)old.node, (SNode) sn.node, lev + 4);
 
-					if(((SNode)old).txn.compareAndSet(NOTXN, an)) {
-						curr.array.compareAndSet(pos, old, an);
+					if(((SNode)old.node).txn.compareAndSet(NOTXN, an)) {
+						curr.array.compareAndSet(pos, (SNode)old.node, an);
 						return true;
 					}
 					else
@@ -193,12 +210,12 @@ public class CTrieNoCacher {
 			else if(txn == FSNODE)
 				return false;
 			else {
-				curr.array.compareAndSet(pos, old, txn);
+				curr.array.compareAndSet(pos, (SNode)old.node, txn);
 				return insert(k, v, h, lev, curr, prev);
 			}
 		}
-		else if(old instanceof ENode)
-			completeExpansion((ENode)old);
+		else if(old.nodeType == ENODE)
+			completeExpansion((ENode)old.node);
 		return false; 
 	}
 
