@@ -1,6 +1,6 @@
 import java.util.concurrent.atomic.*;
 
-public class SNode extends Node {
+public class SNode {
   int hash;
   long key;
   Object value;

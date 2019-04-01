@@ -9,7 +9,7 @@ public class GenNode {
   private static final String NOTXN = "NOTXN";
   private static final String SNODE = "SNODE";
 
-  Node node;
+  Object node;
   String nodeType;
 
   GenNode(int length) {

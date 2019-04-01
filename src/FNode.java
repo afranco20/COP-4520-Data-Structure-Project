@@ -1,7 +1,7 @@
 import java.security.Key;
 import java.util.concurrent.atomic.*;
 
-public class FNode extends Node {
+public class FNode {
   GenNode frozen;
   Object AorS;
   // Object nodeType = FNODE;

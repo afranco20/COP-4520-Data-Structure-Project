@@ -120,7 +120,36 @@ public class CTrieNoCache {
   }
 
   // Insert in ANode of size 16 or 4
-  void insertANode(GenNode aNode, GenNode item, int level) {}
+  void insertANode(GenNode aNode, GenNode item, int level) {
+  	if(item.nodeType != FNODE)
+  	{
+	  	if(item.nodeType == SNODE) {
+	  		int pos = (((SNode)item.node).hash >>> level) & (((ANode)aNode.node).array.length() - 1);
+	  		// Fail to put in array
+	  		if(!((ANode)aNode.node).array.compareAndSet(pos, null, item))
+	  			System.out.println("Failed to rehash item");
+	  	}
+	  	else if(item.nodeType == ANODE) {
+	  		System.out.println("How did that happen lol");
+	  	}
+	  	else if(item.nodeType == ENODE) {
+	  		completeExpansion(item);
+	  	}
+  	}
+  	else {
+  		GenNode fNode = ((FNode)item.node).frozen;
+  		if(fNode.nodeType == SNODE) {
+	  		int pos = (((SNode)fNode.node).hash >>> level) & (((ANode)aNode.node).array.length() - 1);
+	  		// Fail to put in array
+	  		if(!((ANode)aNode.node).array.compareAndSet(pos, null, item))
+	  			System.out.println("Failed to frozen rehash item");
+	  	}
+	  	else if(fNode.nodeType == ANODE) {
+	  		System.out.println("How did that fnode happen lol");
+	  	}
+  	}
+
+  }
 
   GenNode createNarrow(GenNode first, GenNode second, int level) {
     GenNode narrow = new GenNode(4);

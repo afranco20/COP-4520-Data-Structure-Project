@@ -2,7 +2,7 @@ import java.security.Key;
 import java.util.concurrent.atomic.*;
 
 // Not sure about making parent and wide atomic, if so might need narrow atomic as well
-public class ENode extends Node {
+public class ENode {
   AtomicReference<GenNode> parent;
   int parentpos;
   GenNode narrow;
