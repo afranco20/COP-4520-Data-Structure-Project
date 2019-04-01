@@ -20,8 +20,8 @@ public class CTrieNoCache {
     return 6;
   }
 
-  Object lookupInit(long k) {
-    SNode result = lookup(k, hash(k), 0, (ANode) root.node);
+  Object lookup(long k, int hash) {
+    SNode result = lookup(k, hash, 0, (ANode) root.node);
     if (result != null) {
       return result.value;
     } else {
@@ -207,7 +207,14 @@ public class CTrieNoCache {
     return false;
   }
 
+  void insert(long key, int hash, Object val) {
+  	if(!insert(key, val, hash,  0, root, null))
+  		insert(key, hash, val);
+  }
+
   public static void main(String[] args) {
     CTrieNoCache test = new CTrieNoCache();
+    test.insert(123, 6, "hope");
+    System.out.printf("%s\n", (String) test.lookup(123, 6));
   }
 }
