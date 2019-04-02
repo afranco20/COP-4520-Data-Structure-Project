@@ -1,8 +1,3 @@
-import java.util.ArrayDeque;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-
 public class CTrieNoCache {
   private static final String ANODE = "ANODE";
   private static final String ENODE = "ENODE";
@@ -161,91 +156,125 @@ public class CTrieNoCache {
   }
 
   boolean insert(long k, Object v, int h, int lev, GenNode curr, GenNode prev) {
+    // Get position in ANode according to size of ANode, level and hash code
     int pos = (h >>> lev) & (((ANode) curr.node).array.length() - 1);
+
+    // Check what is at the current position
     GenNode old = ((ANode) curr.node).array.get(pos);
+
+    // If current position is empty
     if (old == null) {
       GenNode sn = new GenNode(h, k, v, null);
-      if (((ANode) curr.node).array.compareAndSet(pos, null, sn))
+
+      // Check nothing has changed, then insert
+      if (((ANode) curr.node).array.compareAndSet(pos, null, sn)) {
         return true;
-      else
+      }
+
+      // Collision, restart at next level
+      else {
         return insert(k, v, h, lev, curr, prev);
-    } else if (old.nodeType.equals(ANODE))
+      }
+    }
+
+    // If there is another array at position, jump to that array
+    else if (old.nodeType.equals(ANODE)) {
       return insert(k, v, h, lev + 4, old, prev);
+    }
+
+    // If we found an entry with the current hash bits
     else if (old.nodeType.equals(SNODE)) {
+      // Check if it has a special value
       GenNode txn = ((SNode) old.node).txn.get();
+
+      // We're allowed to modify the node
       if (txn == null) {
+
+        // If we want to insert a node with the same key
         if (((SNode) old.node).key == k) {
           GenNode sn = new GenNode(h, k, v, null);
+
+          // Check if nothing has changed and announce that there is new SNode
           if (((SNode) old.node).txn.compareAndSet(null, sn)) {
             ((ANode) curr.node).array.compareAndSet(pos, old, sn);
             return true;
-          } else
+          }
+
+          // Failed to announce there is new SNode so restart
+          else {
             return insert(k, v, h, lev, curr, prev);
-        } else if (((ANode) curr.node).array.length() == 4) {
+          }
+        }
+
+        // Check if ANode is narrow, create ENode to announce expansion
+        else if (((ANode) curr.node).array.length() == 4) {
+          // Save the position in the parent
           int ppos = (h >>> (lev - 4)) & (((ANode) prev.node).array.length() - 1);
+
           GenNode en = new GenNode(prev, ppos, curr, h, lev);
+
+          // Check that the parent of the current ANode still contains current and then insert the ENode
           if (((ANode) prev.node).array.compareAndSet(ppos, curr, en)) {
             completeExpansion(en);
             GenNode wide = ((ENode) en.node).wide.get();
+
+            // Restart insertion with the wide ANode in the new ENode
             return insert(k, v, h, lev, wide, prev);
-          } else
+          }
+
+          // Failed to insert ENode so restart
+          else {
             return insert(k, v, h, lev, curr, prev);
-        } else {
+          }
+        }
+
+        // If ANode is already wide
+        else {
           GenNode sn = new GenNode(h, k, v, null);
+
+          // Creates a new ANode with the new and old SNode
           GenNode an = createNarrow(old, sn, lev + 4);
+
+          // Check if nothing has changed, replace old ANode with new ANode
           if (((SNode) old.node).txn.compareAndSet(null, an)) {
             ((ANode) curr.node).array.compareAndSet(pos, old, an);
             return true;
-          } else
+          }
+
+          // Failed so restart
+          else {
             return insert(k, v, h, lev, curr, prev);
+          }
         }
-      } else {
+      }
+
+
+      // Frozen SNode so unable to make changes, returns back up to the ENode in control of this SNode
+      else if (txn.nodeType.equals(FSNODE)) {
+        return false;
+      }
+
+      // If SNode or ANode, help complete concurrent insertion
+      else {
+        // Help update cur[pos] to value at txn
         ((ANode) curr.node).array.compareAndSet(pos, old, txn);
         return insert(k, v, h, lev, curr, prev);
       }
-    } else if (old.nodeType.equals(ENODE))
-      completeExpansion(old);
+    }
 
+    // Help concurrent expansion
+    else if (old.nodeType.equals(ENODE)) {
+      completeExpansion(old);
+    }
+
+    // If FVNode or FNode
     return false;
   }
 
+  // Initial call
   void insert(long key, int hash, Object val) {
-  	if(!insert(key, val, hash,  0, root, null))
-  		insert(key, hash, val);
-  }
-
-  // generate list of numbers with same hash
-  static ArrayDeque<Integer> hashCollider() {
-    ArrayDeque<Integer> num;
-
-    // filters infinite list of integers and collects the first 100 results
-    num =
-        IntStream.iterate(0, i -> i + 1)
-            .parallel()
-            .filter(i -> i % 16 == 6)
-            .limit(100)
-            .boxed()
-            .collect(Collectors.toCollection(ArrayDeque::new));
-
-    // return list
-    return num;
-  }
-
-  public static void main(String[] args) {
-    CTrieNoCache test = new CTrieNoCache();
-
-//    test.insert(123, 6, "hope");
-    System.out.println("--- test insertions ---");
-    ArrayDeque<Integer> hashes = hashCollider();
-    for (Integer i : hashes) {
-      test.insert(i, 6, i);
-    }
-
-//    System.out.printf("%s\n", (String) test.lookup(123, 6));
-    System.out.println("--- test lookup ---");
-    for (Integer i : hashes) {
-      String str = (String) test.lookup(i, 6);
-      System.out.printf("%s%n", str);
+  	if(!insert(key, val, hash,  0, root, null)) {
+      insert(key, hash, val);
     }
   }
 }

@@ -1,5 +1,3 @@
-import java.security.Key;
-
 public class GenNode {
   private static final String ANODE = "ANODE";
   private static final String ENODE = "ENODE";
