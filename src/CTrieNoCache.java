@@ -1,5 +1,7 @@
+import java.util.ArrayDeque;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import java.util.concurrent.atomic.*;
 
 public class CTrieNoCache {
   private static final String ANODE = "ANODE";
@@ -34,19 +36,19 @@ public class CTrieNoCache {
     GenNode old = curr.array.get(pos);
 
     // Not sure about "old == FVNODE"
-    if (old == null || (old.nodeType == FNODE && ((FNode) old.node).frozen == null))
+    if (old == null || (old.nodeType.equals(FNODE) && ((FNode) old.node).frozen == null))
       return null;
-    else if (old.nodeType == ANODE)
+    else if (old.nodeType.equals(ANODE))
       return lookup(key, hash, level + 4, (ANode) old.node);
-    else if (old.nodeType == SNODE) {
+    else if (old.nodeType.equals(SNODE)) {
       if (((SNode) old.node).key == key)
         return (SNode) old.node;
       else
         return null;
-    } else if (old.nodeType == ENODE) {
+    } else if (old.nodeType.equals(ENODE)) {
       ANode an = ((ANode) ((ENode) old.node).narrow.node);
       return lookup(key, hash, level + 4, an);
-    } else if (old.nodeType == FNODE) {
+    } else if (old.nodeType.equals(FNODE)) {
       if (((FNode) old.node).AorS == ANODE)
         return lookup(key, hash, level + 4, (ANode) ((FNode) old.node).frozen.node);
       else if (((FNode) old.node).AorS == SNODE) {
@@ -67,7 +69,7 @@ public class CTrieNoCache {
     int i = 0;
     while (i < ((ANode) og.node).array.length()) {
       GenNode ent = ((ANode) og.node).array.get(i);
-      if (ent.nodeType == SNODE) {
+      if (ent.nodeType.equals(SNODE)) {
         // int pos = (ent.node.hash >>> level) & (newOg.node.array.length() - 1);
         // insertANode definition
         insertANode(newOg, ent, level);
@@ -84,7 +86,7 @@ public class CTrieNoCache {
       if (node == null)
         if (!((ANode) curr.node).array.compareAndSet(i, node, new GenNode(null)))
           i -= 1;
-        else if (node.nodeType == SNODE) {
+        else if (node.nodeType.equals(SNODE)) {
           GenNode txn = ((SNode) node.node).txn.get();
           if (txn == null)
             if (!((SNode) node.node).txn.compareAndSet(null, node))
@@ -97,10 +99,10 @@ public class CTrieNoCache {
           GenNode fn = new GenNode((GenNode) node.node);
           ((ANode) curr.node).array.compareAndSet(i, node, fn);
           i -= 1;
-        } else if (node.nodeType == FNODE) {
+        } else if (node.nodeType.equals(FNODE)) {
           if (((FNode) node.node).AorS == ANODE)
             freeze(((FNode) node.node).frozen);
-        } else if (node.nodeType == ENODE) {
+        } else if (node.nodeType.equals(ENODE)) {
           completeExpansion(node);
           i -= 1;
         }
@@ -121,30 +123,30 @@ public class CTrieNoCache {
 
   // Insert in ANode of size 16 or 4
   void insertANode(GenNode aNode, GenNode item, int level) {
-  	if(item.nodeType != FNODE)
+  	if(!item.nodeType.equals(FNODE))
   	{
-	  	if(item.nodeType == SNODE) {
+	  	if(item.nodeType.equals(SNODE)) {
 	  		int pos = (((SNode)item.node).hash >>> level) & (((ANode)aNode.node).array.length() - 1);
 	  		// Fail to put in array
 	  		if(!((ANode)aNode.node).array.compareAndSet(pos, null, item))
 	  			System.out.println("Failed to rehash item");
 	  	}
-	  	else if(item.nodeType == ANODE) {
+	  	else if(item.nodeType.equals(ANODE)) {
 	  		System.out.println("How did that happen lol");
 	  	}
-	  	else if(item.nodeType == ENODE) {
+	  	else if(item.nodeType.equals(ENODE)) {
 	  		completeExpansion(item);
 	  	}
   	}
   	else {
   		GenNode fNode = ((FNode)item.node).frozen;
-  		if(fNode.nodeType == SNODE) {
+  		if(fNode.nodeType.equals(SNODE)) {
 	  		int pos = (((SNode)fNode.node).hash >>> level) & (((ANode)aNode.node).array.length() - 1);
 	  		// Fail to put in array
 	  		if(!((ANode)aNode.node).array.compareAndSet(pos, null, item))
 	  			System.out.println("Failed to frozen rehash item");
 	  	}
-	  	else if(fNode.nodeType == ANODE) {
+	  	else if(fNode.nodeType.equals(ANODE)) {
 	  		System.out.println("How did that fnode happen lol");
 	  	}
   	}
@@ -167,9 +169,9 @@ public class CTrieNoCache {
         return true;
       else
         return insert(k, v, h, lev, curr, prev);
-    } else if (old.nodeType == ANODE)
+    } else if (old.nodeType.equals(ANODE))
       return insert(k, v, h, lev + 4, old, prev);
-    else if (old.nodeType == SNODE) {
+    else if (old.nodeType.equals(SNODE)) {
       GenNode txn = ((SNode) old.node).txn.get();
       if (txn == null) {
         if (((SNode) old.node).key == k) {
@@ -201,7 +203,7 @@ public class CTrieNoCache {
         ((ANode) curr.node).array.compareAndSet(pos, old, txn);
         return insert(k, v, h, lev, curr, prev);
       }
-    } else if (old.nodeType == ENODE)
+    } else if (old.nodeType.equals(ENODE))
       completeExpansion(old);
 
     return false;
@@ -212,9 +214,38 @@ public class CTrieNoCache {
   		insert(key, hash, val);
   }
 
+  // generate list of numbers with same hash
+  static ArrayDeque<Integer> hashCollider() {
+    ArrayDeque<Integer> num;
+
+    // filters infinite list of integers and collects the first 100 results
+    num =
+        IntStream.iterate(0, i -> i + 1)
+            .parallel()
+            .filter(i -> i % 16 == 6)
+            .limit(100)
+            .boxed()
+            .collect(Collectors.toCollection(ArrayDeque::new));
+
+    // return list
+    return num;
+  }
+
   public static void main(String[] args) {
     CTrieNoCache test = new CTrieNoCache();
-    test.insert(123, 6, "hope");
-    System.out.printf("%s\n", (String) test.lookup(123, 6));
+
+//    test.insert(123, 6, "hope");
+    System.out.println("--- test insertions ---");
+    ArrayDeque<Integer> hashes = hashCollider();
+    for (Integer i : hashes) {
+      test.insert(i, 6, i);
+    }
+
+//    System.out.printf("%s\n", (String) test.lookup(123, 6));
+    System.out.println("--- test lookup ---");
+    for (Integer i : hashes) {
+      String str = (String) test.lookup(i, 6);
+      System.out.printf("%s%n", str);
+    }
   }
 }
