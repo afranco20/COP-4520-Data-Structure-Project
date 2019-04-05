@@ -212,13 +212,15 @@ public class CTrieNoCache {
 
     // Check what is at the current position
     GenNode old = ((ANode) curr.node).array.get(pos);
-    System.out.println(lev);
-    //System.out.printf("%d %d \n",pos, lev);
+
+    System.out.printf("--- insert ---%n");
+    System.out.printf("level: %d%n%n", lev);
+    System.out.printf("array values:%n");
     for(int i = 0; i < ((ANode) curr.node).array.length(); i++) {
       if(((ANode) curr.node).array.get(i) != null)
-        System.out.println(((ANode) curr.node).array.get(i).nodeType);
+        System.out.println("[" + i + "] = " + ((ANode) curr.node).array.get(i).nodeType);
       else
-        System.out.println("null");
+        System.out.println("[" + i + "] = " + "null");
     }
     // If current position is empty
     if (old == null) {
@@ -355,13 +357,17 @@ public class CTrieNoCache {
       }
       else if(item.nodeType.equals(FNODE)){
         GenNode fr = ((FNode)item.node).frozen;
-        if(((FNode)item.node).AorS.equals(ANODE))
+        if(((FNode)item.node).AorS.equals(ANODE)) {
           printTrace(fr);
-        else if(((FNode)item.node).AorS.equals(SNODE))
+        }
+        else if(((FNode)item.node).AorS.equals(SNODE)) {
           System.out.println(((SNode)fr.node).value);
-        else
+        }
+        else {
           continue;
+        }
       }
+
       else if(item.nodeType.equals(ENODE)) {
         printTrace(((ENode)item.node).narrow);
       } 
