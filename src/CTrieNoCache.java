@@ -8,6 +8,7 @@ public class CTrieNoCache {
   private static final String SNODE = "SNODE";
 
   GenNode root;
+  private int count = 0;
 
   CTrieNoCache() {
     root = new GenNode(16);
@@ -120,25 +121,28 @@ public class CTrieNoCache {
     int length = ((ANode) og.node).array.length();
   	while(i < length) {
   		GenNode node = ((ANode)og.node).array.get(i);
-      if(node.nodeType.equals(FNODE)) {
-    		if(((FNode) node.node).AorS.equals(null)) {
-
-    		} else if(((FNode) node.node).AorS.equals(SNODE)) {
-    			GenNode sn = ((FNode) node.node).frozen;
-          int pos = (((SNode)sn.node).hash >>> level) & (16 - 1);
-          if(((ANode)newOg.node).array.get(pos) == null) {
-            ((ANode)newOg.node).array.set(pos, sn);
+  		if(node == null) continue;
+  		if(node.nodeType.equals(SNODE) || node.nodeType.equals(FNODE)) {
+  		  GenNode check = (node.nodeType.equals(FNODE))? (node): (((SNode)node.node).txn.get());
+          if((check.nodeType.equals(FNODE))) {
+                if(((FNode) check.node).AorS.equals(SNODE)) {
+                    GenNode sn = ((FNode) check.node).frozen;
+                    int pos = (((SNode)sn.node).hash >>> level) & (16 - 1);
+                    if(((ANode)newOg.node).array.get(pos) == null) {
+                      ((ANode)newOg.node).array.set(pos, sn);
+                    }
+                    else {
+                      insertWide(newOg, sn, level, pos);
+                    }
+                } else if(((FNode)check.node).AorS.equals(ANODE)){
+              transfer(((FNode)check.node).frozen, newOg, level);
+            }
+            else {
+              System.out.println("ANodes not frozen or LNode");
+            }
           }
-          else {
-            insertWide(newOg, sn, level, pos);
-          } 
-    		} else if(((FNode)node.node).AorS.equals(ANODE)){
-          transfer(((FNode)node.node).frozen, newOg, level);
-        }
-        else {
-          System.out.println("ANodes not frozen or LNode");
-        }
-      }
+  		}
+
       i += 1;
   	}
   }
@@ -152,6 +156,9 @@ public class CTrieNoCache {
       wide = ((ENode) en.node).wide.get();
     ((ANode) (((ENode) en.node).parent.get().node))
         .array.compareAndSet(((ENode) en.node).parentpos, en, wide);
+    // unfreeze function
+    // start at en.node.parent.array.get(en.node.parentpos), then work way down tree
+    // changing all SNode.txn values to null
   }
 
   // Insert in ANode of size 16
@@ -300,6 +307,8 @@ public class CTrieNoCache {
           // Check if nothing has changed, replace old ANode with new ANode
           if (((SNode) old.node).txn.compareAndSet(null, an)) {
             ((ANode) curr.node).array.compareAndSet(pos, old, an);
+
+            // ??? evil bit level magic [don't remove]
             ((SNode) old.node).txn.compareAndSet(an, null);
             //System.out.println("new narrow");
             return true;
@@ -314,7 +323,7 @@ public class CTrieNoCache {
 
 
       // Frozen SNode so unable to make changes, returns back up to the ENode in control of this SNode
-      else if (txn.nodeType.equals(FSNODE)) {
+      else if (txn.nodeType.equals(FNODE) && ((FNode)txn.node).frozen.nodeType.equals(SNODE)) {
         return false;
       }
 
@@ -339,8 +348,14 @@ public class CTrieNoCache {
   // Initial call
   void insert(long key, int hash, Object val) {
   	if(!insert(key, val, hash,  0, root, null)) {
+  	  if(count >= 3) {
+        System.out.printf("Cannot insert: %d %n", hash);
+        return;
+      }
+  	  count++;
       insert(key, hash, val);
     }
+  	count = 0;
   }
   void printTrace(GenNode array) {
     int length = ((ANode)array.node).array.length();
