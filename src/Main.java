@@ -25,13 +25,17 @@ public class Main {
     System.out.println("--- test insertions ---");
     ArrayDeque<Integer> hashes = hashCollider();
     for (Integer i : hashes) {
-      test.insert(i, 6, i);
+      System.out.println(i);
+      test.insert(i, i, i);
     }
 
     System.out.println("--- test lookup ---");
     for (Integer i : hashes) {
-      String str = (String) test.lookup(i, 6);
-      System.out.printf("%s%n", str);
+      //String str = (String) test.lookup(i, i);
+      //System.out.printf("%s%n", str);
+      System.out.println(test.lookup(i, i));
     }
+    System.out.println("--- test trace ---");
+    test.printTrace();
   }
 }

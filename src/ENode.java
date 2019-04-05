@@ -15,5 +15,6 @@ public class ENode {
     narrow = curr;
     hash = h;
     level = lev;
+    wide = new AtomicReference<>(null);
   }
 }
