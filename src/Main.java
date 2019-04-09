@@ -1,10 +1,13 @@
 import java.util.ArrayDeque;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.deuce.Atomic;
 
 public class Main {
+  private static final int num_threads = 8;
+
   // generate list of numbers with same hash
   private static ArrayDeque<Integer> hashCollider() {
     ArrayDeque<Integer> hashes;
@@ -22,37 +25,38 @@ public class Main {
   }
 
   // generate list of sequential numbers
-  @Atomic
   private static ArrayDeque<Integer> numbers() {
-    return IntStream.rangeClosed(0, 100).boxed().collect(Collectors.toCollection(ArrayDeque::new));
+    return IntStream.rangeClosed(0, 1_000_000).boxed().collect(Collectors.toCollection(ArrayDeque::new));
   }
 
-  @Atomic
   public static void main(String[] args) {
     CTrieNoCache test = new CTrieNoCache();
 
-    System.out.println("--- test insertions ---");
-    ArrayDeque<Integer> hashes = hashCollider();
+//    System.out.println("--- test insertions ---");
+//    ArrayDeque<Integer> hashes = hashCollider();
 //    ArrayDeque<Integer> hashes = numbers();
 
-      Executors
+    ExecutorService thread_pool = Executors.newFixedThreadPool(num_threads);
 
-    int count = 0;
-    for (Integer i : hashes) {
-      System.out.printf("%n*** INSERTING %d ***%n%n", i);
-      test.insert(count++, i);
+    for (int i = 0; i < 1_000_000; i++) {
+      final int k = i;
+      thread_pool.submit(() -> test.insert(k, k));
     }
 
-    System.out.println("--- test lookup ---");
-    count--;
-    while (count >= 0) {
-      System.out.println(test.lookup(count--));
-    }
-for (Integer i : hashes) {
-    System.out.println(test.lookup(i));
-  }
+    thread_pool.shutdown();
+    System.out.println("=== test ===");
 
-    System.out.println("--- test trace ---");
-    test.printTrace();
+//    for (Integer i : hashes) {
+//      System.out.printf("%n*** INSERTING %d ***%n%n", i);
+//      test.insert(i, i);
+//    }
+
+//    System.out.println("--- test lookup ---");
+//    for (Integer i : hashes) {
+//      System.out.println(test.lookup(i));
+//    }
+
+//    System.out.println("--- test trace ---");
+//    test.printTrace();
   }
 }
