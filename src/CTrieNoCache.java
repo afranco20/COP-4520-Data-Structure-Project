@@ -28,33 +28,42 @@ public class CTrieNoCache {
     int pos = ((hash >>> level) & ((curr.array).length() - 1));
     GenNode old = curr.array.get(pos);
 
-    // Not sure about "old == FVNODE"
-    if (old == null || (old.nodeType.equals(FNODE) && ((FNode) old.node).frozen == null))
+    if (old == null) {
       return null;
-    else if (old.nodeType.equals(ANODE))
-      return lookup(key, hash, level + 4, (ANode) old.node);
-    else if (old.nodeType.equals(SNODE)) {
-      if (((SNode) old.node).key == key)
-        return (SNode) old.node;
-      else
-        return null;
-    } else if (old.nodeType.equals(ENODE)) {
-      ANode an = ((ANode) ((ENode) old.node).narrow.node);
-      return lookup(key, hash, level + 4, an);
-    } else if (old.nodeType.equals(FNODE)) {
-      if (((FNode) old.node).AorS == ANODE)
-        return lookup(key, hash, level + 4, (ANode) ((FNode) old.node).frozen.node);
-      else if (((FNode) old.node).AorS == SNODE) {
-        GenNode fnode = ((FNode) old.node).frozen;
-        if (((SNode) fnode.node).key == key)
-          return (SNode) fnode.node;
-        else
+    }
+
+    switch (old.nodeType) {
+      // Not sure about "old == FVNODE"
+      case FNODE:
+        if (((FNode) old.node).frozen == null) {
           return null;
-      } else
+        }
+
+        switch ((String) ((FNode) old.node).AorS) {
+          case ANODE:
+            return lookup(key, hash, level + 4, (ANode) ((FNode) old.node).frozen.node);
+
+          case SNODE:
+            GenNode fnode = ((FNode) old.node).frozen;
+            return (((SNode) fnode.node).key == key) ? (SNode) fnode.node : null;
+
+          default:
+            return null;
+        }
+
+      case ANODE:
+        return lookup(key, hash, level + 4, (ANode) old.node);
+
+      case SNODE:
+        return (((SNode) old.node).key == key) ? (SNode) old.node : null;
+
+      case ENODE:
+        ANode an = ((ANode) ((ENode) old.node).narrow.node);
+        return lookup(key, hash, level + 4, an);
+
+      default:
+        System.out.println("### ERROR IN LOOKUP! ###");
         return null;
-    } else {
-      System.out.println("Something went wrong");
-      return null;
     }
   }
 
@@ -98,7 +107,7 @@ public class CTrieNoCache {
           continue; // Frozen nodes from another expansion
 
         default:
-          System.out.println("--- unknown node type! ---");
+          System.out.println("### UNKNOWN NODE TYPE! ###");
           System.exit(1);
       }
     }
@@ -106,39 +115,57 @@ public class CTrieNoCache {
 
   void freeze(GenNode curr) {
     int i = 0;
+
     while (i < ((ANode) curr.node).array.length()) {
       GenNode node = ((ANode) curr.node).array.get(i);
       if (node == null){
         if (!((ANode) curr.node).array.compareAndSet(i, node, new GenNode(null))) {
           i -= 1;
         }
-      } else if (node.nodeType.equals(SNODE)) {
+      }
+
+      switch (node.nodeType) {
+        case SNODE:
           GenNode txn = ((SNode) node.node).txn.get();
+
           if (txn == null) {
             GenNode fNode = new GenNode(node);
-            ((FNode)fNode.node).AorS = SNODE;
+            ((FNode) fNode.node).AorS = SNODE;
+
             if (!((SNode) node.node).txn.compareAndSet(null, fNode)) {
               i -= 1;
             }
           }
-          else if(!txn.nodeType.equals(FNODE)) {
-            if(!((FNode)txn.node).AorS.equals(SNODE)) {
+
+          else if (!txn.nodeType.equals(FNODE)) {
+            if (!((FNode) txn.node).AorS.equals(SNODE)) {
               ((ANode) curr.node).array.compareAndSet(i, node, txn);
               i -= 1;
             }
           }
-        } else if (node.nodeType.equals(ANODE)) {
+          break;
+
+        case ANODE:
           GenNode fn = new GenNode((GenNode) node.node);
           ((ANode) curr.node).array.compareAndSet(i, node, fn);
           i -= 1;
-        } else if (node.nodeType.equals(FNODE)) {
+          break;
+
+        case FNODE:
           if (((FNode) node.node).AorS.equals(ANODE)) {
             freeze(((FNode) node.node).frozen);
           }
-        } else if (node.nodeType.equals(ENODE)) {
+          break;
+
+        case ENODE:
           completeExpansion(node);
           i -= 1;
-        }
+          break;
+
+        default:
+          System.out.println("### ERROR - UNKNOWN NODE TYPE! ###");
+          System.exit(1);
+      }
 
       i += 1;
     }
@@ -146,8 +173,8 @@ public class CTrieNoCache {
 
   // Sequential transfer, also look where it is called just in case
   void transfer(GenNode og, GenNode newOg, int level) {
-  	int i = 0;
-    int length = ((ANode) og.node).array.length();
+  	int i = 0, length = ((ANode) og.node).array.length();
+
   	while(i < length) {
   		GenNode node = ((ANode)og.node).array.get(i);
   		if(node == null) continue;
@@ -180,23 +207,28 @@ public class CTrieNoCache {
     freeze(((ENode) en.node).narrow);
     GenNode wide = new GenNode(16);
     transfer(((ENode) en.node).narrow, wide, ((ENode) en.node).level);
-    unfreeze(((ENode) en.node).narrow);
-    //System.out.println("expand");
-    if (!((ENode) en.node).wide.compareAndSet(null, wide))
-      wide = ((ENode) en.node).wide.get();
-    ((ANode) (((ENode) en.node).parent.get().node))
-        .array.compareAndSet(((ENode) en.node).parentpos, en, wide);
+
     // unfreeze function
     // start at en.node.parent.array.get(en.node.parentpos), then work way down tree
     // changing all SNode.txn values to null
+    unfreeze(((ENode) en.node).narrow);
+
+    // System.out.println("--- expansion ---");
+    if (!((ENode) en.node).wide.compareAndSet(null, wide)) {
+      wide = ((ENode) en.node).wide.get();
+    }
+
+    ((ANode) (((ENode) en.node).parent.get().node)).array.compareAndSet(((ENode) en.node).parentpos, en, wide);
   }
 
   // Insert in ANode of size 16
   void insertWide(GenNode aNode, GenNode item, int level) {
   	int pos = (((SNode)item.node).hash >>> level) & (16 - 1);
+
   	if(((ANode)aNode.node).array.get(pos) == null) {
   		((ANode)aNode.node).array.set(pos, item);
   	}
+
   	else {
   		insertWide(aNode, item, level, pos);
   	}
@@ -205,22 +237,32 @@ public class CTrieNoCache {
   void insertWide(GenNode aNode, GenNode item, int level, int pos) {
   	// Check what is at the current position
   	GenNode old = ((ANode)aNode.node).array.get(pos);
+
   	if(old.nodeType.equals(SNODE)) {
   		GenNode an = createNarrowOrWide(old, item, level + 4);
   		((ANode)aNode.node).array.set(pos, an);
-  	} else if(old.nodeType.equals(ANODE)) {
+  	}
+
+  	else if(old.nodeType.equals(ANODE)) {
   		int newPos = (((SNode)item.node).hash >>> (level + 4)) & (((ANode)old.node).array.length() - 1);
+
   		if(((ANode)old.node).array.get(newPos) == null) {
   			((ANode)old.node).array.set(newPos, item);
-  		} else if(((ANode)old.node).array.length() == 4) {
+  		}
+
+  		else if(((ANode)old.node).array.length() == 4) {
   			GenNode an = new GenNode(16);
   			transfer(old, an, level + 4);
   			((ANode)aNode.node).array.set(pos, an);
   			insertWide(aNode, item, level, pos);
-  		} else {
+  		}
+
+  		else {
   			insertWide(old, item, level + 4, newPos);
   		}
-  	} else {
+  	}
+
+  	else {
   		System.out.println("LNode or unexpected case");
   	}
   }
@@ -236,6 +278,7 @@ public class CTrieNoCache {
     	((ANode)narrow.node).array.set(pos2, second);
     	return narrow;
     }
+
     else {
     	GenNode wide = new GenNode(16);
     	insertWide(wide, first, level);
@@ -251,6 +294,12 @@ public class CTrieNoCache {
     // Check what is at the current position
     GenNode old = ((ANode) curr.node).array.get(pos);
 
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    // DEBUG
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     System.out.printf("--- insert ---%n");
     System.out.printf("level: %d%n%n", lev);
     System.out.printf("array values:%n");
@@ -260,6 +309,10 @@ public class CTrieNoCache {
       else
         System.out.println("[" + i + "] = " + "null");
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
     // If current position is empty
     if (old == null) {
       //System.out.println("Congrats");
@@ -286,6 +339,7 @@ public class CTrieNoCache {
     else if (old.nodeType.equals(SNODE)) {
       // Check if it has a special value
       GenNode txn = ((SNode) old.node).txn.get();
+
       //System.out.println("what");
       // We're allowed to modify the node
       if (txn == null) {
@@ -430,7 +484,7 @@ public class CTrieNoCache {
           printTrace(((ENode) item.node).narrow);
 
         default:
-          System.out.println("--- unknown node type! ---");
+          System.out.println("### UNKNOWN NODE TYPE! ###");
           System.exit(1);
       }
     }
