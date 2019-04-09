@@ -75,6 +75,28 @@ public class CTrieNoCache {
     }
   }
 
+  void unfreeze(GenNode arr) {
+    int length = ((ANode) arr.node).array.length();
+    for(int i = 0; i < length; i++) {
+      GenNode curr = ((ANode) arr.node).array.get(i);
+      if(curr.nodeType.equals(SNODE)) {
+        GenNode txt = ((SNode)curr.node).txn.get();
+        if(txt != null) {
+          ((SNode)curr.node).txn.compareAndSet(txt, null);
+        }
+      }
+      else if(curr.nodeType.equals(ANODE)) {
+        unfreeze(curr);
+      }
+      else if(curr.nodeType.equals(ENODE)) {
+        completeExpansion(curr);
+      }
+      else if(curr.nodeType.equals(FNODE)) {
+        continue; // Frozen nodes from another expansion
+      }
+    }
+  }
+
   void freeze(GenNode curr) {
     int i = 0;
     while (i < ((ANode) curr.node).array.length()) {
@@ -151,6 +173,7 @@ public class CTrieNoCache {
     freeze(((ENode) en.node).narrow);
     GenNode wide = new GenNode(16);
     transfer(((ENode) en.node).narrow, wide, ((ENode) en.node).level);
+    unfreeze(((ENode) en.node).narrow);
     //System.out.println("expand");
     if (!((ENode) en.node).wide.compareAndSet(null, wide))
       wide = ((ENode) en.node).wide.get();
