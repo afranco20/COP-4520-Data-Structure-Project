@@ -1,3 +1,4 @@
+    
 public class FNode {
   GenNode frozen;
   Object AorS;

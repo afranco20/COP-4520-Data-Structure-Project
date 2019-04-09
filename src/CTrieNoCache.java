@@ -1,3 +1,6 @@
+
+import org.deuce.Atomic;
+
 public class CTrieNoCache {
   private static final String ANODE = "ANODE";
   private static final String ENODE = "ENODE";
@@ -15,15 +18,16 @@ public class CTrieNoCache {
   }
 
   // used to evenly hash object hashes
+  @Atomic
   private int hash(int k) {
     return (k ^ k >>> 16) & Integer.MAX_VALUE;
   }
-
+  @Atomic
   Object lookup(Object key) {
     SNode result = lookup(key, hash(key.hashCode()), 0, (ANode) root.node);
     return (result != null) ? result.value : null;
   }
-
+  @Atomic
   SNode lookup(Object key, int hash, int level, ANode curr) {
     int pos = ((hash >>> level) & ((curr.array).length() - 1));
     GenNode old = curr.array.get(pos);
@@ -66,7 +70,7 @@ public class CTrieNoCache {
         return null;
     }
   }
-
+  @Atomic
   void copy(GenNode og, GenNode newOg, int level) {
     int i = 0;
     while (i < ((ANode) og.node).array.length()) {
@@ -80,7 +84,7 @@ public class CTrieNoCache {
       i++;
     }
   }
-
+  @Atomic
   void unfreeze(GenNode arr) {
     int length = ((ANode) arr.node).array.length();
 
@@ -112,7 +116,7 @@ public class CTrieNoCache {
       }
     }
   }
-
+  @Atomic
   void freeze(GenNode curr) {
     int i = 0;
 
@@ -172,6 +176,7 @@ public class CTrieNoCache {
   }
 
   // Sequential transfer, also look where it is called just in case
+  @Atomic
   void transfer(GenNode og, GenNode newOg, int level) {
   	int i = 0, length = ((ANode) og.node).array.length();
 
@@ -202,7 +207,7 @@ public class CTrieNoCache {
       i += 1;
   	}
   }
-
+  @Atomic
   void completeExpansion(GenNode en) {
     freeze(((ENode) en.node).narrow);
     GenNode wide = new GenNode(16);
@@ -222,6 +227,7 @@ public class CTrieNoCache {
   }
 
   // Insert in ANode of size 16
+  @Atomic
   void insertWide(GenNode aNode, GenNode item, int level) {
   	int pos = (((SNode)item.node).hash >>> level) & (16 - 1);
 
@@ -234,6 +240,7 @@ public class CTrieNoCache {
   	}
   }
 
+  @Atomic
   void insertWide(GenNode aNode, GenNode item, int level, int pos) {
   	// Check what is at the current position
   	GenNode old = ((ANode)aNode.node).array.get(pos);
@@ -267,6 +274,7 @@ public class CTrieNoCache {
   	}
   }
 
+  @Atomic
   GenNode createNarrowOrWide(GenNode first, GenNode second, int level) {
   	/// Same hash, wtf is an LNode
     int pos1 = (((SNode)first.node).hash >>> level) & (4 - 1);
@@ -287,6 +295,7 @@ public class CTrieNoCache {
     }
   }
 
+  @Atomic
   boolean insert(Object k, Object v, int h, int lev, GenNode curr, GenNode prev) {
     // Get position in ANode according to size of ANode, level and hash code
     int pos = (h >>> lev) & (((ANode) curr.node).array.length() - 1);
@@ -431,6 +440,7 @@ public class CTrieNoCache {
   }
 
   // Initial call
+  @Atomic
   void insert(Object key, Object val) {
   	if(!insert(key, val, hash(key.hashCode()),  0, root, null)) {
   	  if(count >= 3) {
@@ -444,6 +454,7 @@ public class CTrieNoCache {
   	count = 0;
   }
 
+  @Atomic
   void printTrace(GenNode array) {
     int length = ((ANode)array.node).array.length();
 
@@ -490,6 +501,7 @@ public class CTrieNoCache {
     }
   }
 
+  @Atomic
   void printTrace() {
     printTrace(root);
   }
