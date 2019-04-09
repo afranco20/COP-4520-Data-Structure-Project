@@ -21,17 +21,19 @@ public class Main {
 
   public static void main(String[] args) {
     CTrieNoCache test = new CTrieNoCache();
-
+    int numNodes = 0;
     System.out.println("--- test insertions ---");
     ArrayDeque<Integer> hashes = hashCollider();
     for (Integer i : hashes) {
-      System.out.printf("%n*** INSERTING %d ***%n%n", i);
+      System.out.printf("%n*** #%d INSERTING %d ***%n%n", numNodes, i);
       test.insert(i, i, i);
+      numNodes++;
     }
-
+    numNodes = 0;
     System.out.println("--- test lookup ---");
     for (Integer i : hashes) {
-      System.out.println(test.lookup(i, i));
+      System.out.printf("#%d %d%n", numNodes, test.lookup(i, i));
+      numNodes++;
     }
     System.out.println("--- test trace ---");
     test.printTrace();
