@@ -300,15 +300,15 @@ public class CTrieNoCache {
     // DEBUG
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    System.out.printf("--- insert ---%n");
-    System.out.printf("level: %d%n%n", lev);
-    System.out.printf("array values:%n");
-    for(int i = 0; i < ((ANode) curr.node).array.length(); i++) {
-      if(((ANode) curr.node).array.get(i) != null)
-        System.out.println("[" + i + "] = " + ((ANode) curr.node).array.get(i).nodeType);
-      else
-        System.out.println("[" + i + "] = " + "null");
-    }
+//    System.out.printf("--- insert ---%n");
+//    System.out.printf("level: %d%n%n", lev);
+//    System.out.printf("array values:%n");
+//    for(int i = 0; i < ((ANode) curr.node).array.length(); i++) {
+//      if(((ANode) curr.node).array.get(i) != null)
+//        System.out.println("[" + i + "] = " + ((ANode) curr.node).array.get(i).nodeType);
+//      else
+//        System.out.println("[" + i + "] = " + "null");
+//    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -434,7 +434,7 @@ public class CTrieNoCache {
   void insert(Object key, Object val) {
   	if(!insert(key, val, hash(key.hashCode()),  0, root, null)) {
   	  if(count >= 3) {
-        System.out.printf("Cannot insert: %d %n", hash(key.hashCode()));
+//        System.out.printf("Cannot insert: %d %n", hash(key.hashCode()));
         return;
       }
   	  count++;
