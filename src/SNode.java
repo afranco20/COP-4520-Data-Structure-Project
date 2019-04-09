@@ -2,14 +2,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class SNode {
   int hash;
-  long key;
+  Object key;
   Object value;
   AtomicReference<GenNode> txn;
 
-  SNode(int h, long k, Object val, GenNode type) {
-    hash = h;
-    key = k;
-    value = val;
-    txn = new AtomicReference<>(type);
+  SNode(int hash, Object key, Object value, GenNode type) {
+    this.hash = hash;
+    this.key = key;
+    this.value = value;
+    this.txn = new AtomicReference<>(type);
   }
 }

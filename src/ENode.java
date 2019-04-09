@@ -9,12 +9,12 @@ public class ENode {
   int level;
   AtomicReference<GenNode> wide;
 
-  ENode(GenNode prev, int ppos, GenNode curr, int h, int lev) {
-    parent = new AtomicReference<>(prev);
-    parentpos = ppos;
-    narrow = curr;
-    hash = h;
-    level = lev;
-    wide = new AtomicReference<>(null);
+  ENode(GenNode prev, int ppos, GenNode curr, int hash, int level) {
+    this.parent = new AtomicReference<>(prev);
+    this.parentpos = ppos;
+    this.narrow = curr;
+    this.hash = hash;
+    this.level = level;
+    this.wide = new AtomicReference<>(null);
   }
 }
