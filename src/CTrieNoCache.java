@@ -1,7 +1,7 @@
 public class CTrieNoCache {
-  private static final String ANODE = "ANODE";
-  private static final String ENODE = "ENODE";
-  private static final String FNODE = "FNODE";
+  protected static final String ANODE = "ANODE";
+  protected static final String ENODE = "ENODE";
+  protected static final String FNODE = "FNODE";
   protected static final String SNODE = "SNODE";
 
   GenNode root;
@@ -200,7 +200,7 @@ public class CTrieNoCache {
   	}
   }
 
-  void completeExpansion(GenNode en) {
+  boolean completeExpansion(GenNode en) {
     freeze(((ENode) en.node).narrow);
     GenNode wide = new GenNode(16);
     transfer(((ENode) en.node).narrow, wide, ((ENode) en.node).level);
@@ -215,7 +215,7 @@ public class CTrieNoCache {
       wide = ((ENode) en.node).wide.get();
     }
 
-    ((ANode) (((ENode) en.node).parent.get().node)).array.compareAndSet(((ENode) en.node).parentpos, en, wide);
+    return ((ANode) (((ENode) en.node).parent.get().node)).array.compareAndSet(((ENode) en.node).parentpos, en, wide);
   }
 
   // Insert in ANode of size 16
