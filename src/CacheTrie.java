@@ -27,8 +27,8 @@ public class CacheTrie extends CTrieNoCache{
     }
 
     @Override
-    Object lookup(long k, int hash) {
-        SNode result = lookup(k, hash, 0, root, 0);
+    Object lookup(Object k) {
+        SNode result = lookup(k, hash(k.hashCode()), 0, root, 0);
         if(result != null) {
             return result.value;
         }
@@ -37,7 +37,7 @@ public class CacheTrie extends CTrieNoCache{
         }
     }
 
-    SNode lookup(long key, int hash, int level, GenNode curr, int cacheLevel) {
+    SNode lookup(Object key, int hash, int level, GenNode curr, int cacheLevel) {
 
         if(level == cacheLevel)
             inhabit(curr, hash, level);

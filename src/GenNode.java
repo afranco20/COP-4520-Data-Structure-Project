@@ -20,7 +20,7 @@ public class GenNode {
     nodeType = FNODE;
   }
 
-  GenNode(int hash, long key, Object value, GenNode type) {
+  GenNode(int hash, Object key, Object value, GenNode type) {
     node = new SNode(hash, key, value, type);
     nodeType = SNODE;
   }
