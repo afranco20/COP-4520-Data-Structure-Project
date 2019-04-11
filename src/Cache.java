@@ -6,10 +6,10 @@ public class Cache {
     AtomicReference<CacheNode> stats;
     AtomicReferenceArray<GenNode> root;
 
-    void createCacheLev(int level) {
-        // Get rid of "1 +" since stats is not contained in the array
+    Cache(int level, Cache parent) {
+
         root = new AtomicReferenceArray<>(1 +(1 << level));
-        stats.set(new CacheNode(null, 8));
+        stats =  new AtomicReference<>(new CacheNode(parent, 8));
     }
 
 }

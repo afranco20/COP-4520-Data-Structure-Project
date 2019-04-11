@@ -30,13 +30,13 @@ public class Main {
   }
 
   public static void main(String[] args) {
-    CTrieNoCache test = new CTrieNoCache();
+    CacheTrie test = new CacheTrie();
 
-//    System.out.println("--- test insertions ---");
-//    ArrayDeque<Integer> hashes = hashCollider();
+   System.out.println("--- test insertions ---");
+    ArrayDeque<Integer> hashes = hashCollider();
 //    ArrayDeque<Integer> hashes = numbers();
 
-    ExecutorService thread_pool = Executors.newFixedThreadPool(num_threads);
+    /*ExecutorService thread_pool = Executors.newFixedThreadPool(num_threads);
 
     for (int i = 0; i < 1_000_000; i++) {
       final int k = i;
@@ -44,19 +44,19 @@ public class Main {
     }
 
     thread_pool.shutdown();
-    System.out.println("=== test ===");
+    System.out.println("=== test ===");*/
 
-//    for (Integer i : hashes) {
-//      System.out.printf("%n*** INSERTING %d ***%n%n", i);
-//      test.insert(i, i);
-//    }
+   for (Integer i : hashes) {
+      System.out.printf("%n*** INSERTING %d ***%n%n", i);
+      test.fastInsert(i, i);
+    }
 
-//    System.out.println("--- test lookup ---");
-//    for (Integer i : hashes) {
-//      System.out.println(test.lookup(i));
-//    }
+    System.out.println("--- test lookup ---");
+    for (Integer i : hashes) {
+      System.out.println(test.fastLookup(i));
+    }
 
-//    System.out.println("--- test trace ---");
-//    test.printTrace();
+    System.out.println("--- test trace ---");
+    test.printTrace();
   }
 }

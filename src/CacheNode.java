@@ -5,9 +5,9 @@ public class CacheNode {
     public static final int availableProcessors = 4;
     // First node in the cache
     // Holds statistics about the cache
-    AtomicReference<GenNode> parent;
+    AtomicReference<Cache> parent;
     AtomicReferenceArray<Integer> misses;
-    CacheNode(GenNode parent, int level) {
+    CacheNode(Cache parent, int level) {
         misses = new AtomicReferenceArray<>(availableProcessors * Math.min(16, level));
         this.parent = new AtomicReference<>(parent);
     }
