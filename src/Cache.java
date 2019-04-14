@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 public class Cache {
     AtomicReference<CacheNode> stats;
     AtomicReferenceArray<GenNode> root;
-
+    Cache() {}
     Cache(int level, Cache parent) {
 
         root = new AtomicReferenceArray<>(1 +(1 << level));

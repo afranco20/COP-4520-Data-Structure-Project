@@ -441,7 +441,8 @@ public class CTrieNoCache {
   	count = 0;
   }
 
-  void printTrace(GenNode array) {
+  void printTrace(GenNode array, int level) {
+    System.out.printf("level: %d%n",level);
     int length = ((ANode)array.node).array.length();
 
     for(int i = 0; i < length; i++) {
@@ -457,14 +458,14 @@ public class CTrieNoCache {
           break;
 
         case ANODE:
-          printTrace(item);
+          printTrace(item, level + 4);
           break;
 
         case FNODE:
           GenNode fr = ((FNode) item.node).frozen;
           switch ((String) ((FNode) item.node).AorS) {
             case ANODE:
-              printTrace(fr);
+              printTrace(fr, level + 4);
               break;
 
             case SNODE:
@@ -478,7 +479,7 @@ public class CTrieNoCache {
           break;
 
         case ENODE:
-          printTrace(((ENode) item.node).narrow);
+          printTrace(((ENode) item.node).narrow, level + 4);
 
         default:
           System.out.println("### UNKNOWN NODE TYPE! ###");
@@ -488,6 +489,6 @@ public class CTrieNoCache {
   }
 
   void printTrace() {
-    printTrace(root);
+    printTrace(root, 0);
   }
 }

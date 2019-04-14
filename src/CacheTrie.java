@@ -2,7 +2,7 @@
 import java.util.concurrent.atomic.AtomicReference;
 
 public class CacheTrie extends CTrieNoCache{
-    AtomicReference<Cache> cacheHead = null;
+    AtomicReference<Cache> cacheHead = new AtomicReference<>(null);
     void inhabit(Cache cache, GenNode val, int hash, int currLevels) {
         if(cache == null) {
             if(currLevels >= 12) {
@@ -24,7 +24,7 @@ public class CacheTrie extends CTrieNoCache{
     }
 
     void recordCacheMiss() {
-        System.out.println("Invoke Cache miss");
+        //System.out.println("Invoke Cache miss");
     }
 
     boolean completeExpansion(GenNode en, Cache curr) {
@@ -414,6 +414,46 @@ public class CacheTrie extends CTrieNoCache{
             } else {
                 System.out.println("Error fastInsert");
             }
+        }
+    }
+
+
+    void printCache() {
+        Cache temp = cacheHead.get();
+        CacheNode stats;
+        int cacheLevel = 0;
+        while(temp != null){
+            System.out.printf("cache %d%n", cacheLevel++);
+            stats = temp.stats.get();
+            int length = temp.root.length();
+            for (int i = 0; i < length; i++) {
+                GenNode item = temp.root.get(i);
+                if(item == null) {
+                    System.out.println("null");
+                    continue;
+                }
+                switch (item.nodeType) {
+                    case SNODE:
+                        System.out.println(((SNode) item.node).value);
+                        break;
+                    case ANODE:
+                        printTrace(item, 0);
+                        break;
+                    case ENODE:
+                        printTrace(((ENode) item.node).narrow, 0); // narrow
+                        break;
+                    case FNODE:
+                        if (((FNode) item.node).AorS.equals(ANODE)) {
+                            printTrace((GenNode) ((FNode) item.node).frozen.node, 0);
+                        } else if (((FNode) item.node).AorS.equals(SNODE)) {
+                            System.out.println(((SNode) ((FNode) item.node).frozen.node).value);
+                        }
+                        break;
+                    default:
+                        System.out.println("null");
+                }
+            }
+            temp = stats.parent.get();
         }
     }
 }
