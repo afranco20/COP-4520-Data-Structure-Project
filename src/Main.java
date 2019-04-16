@@ -16,7 +16,7 @@ public class Main {
     hashes = IntStream.iterate(0, i -> i + 1)
               .parallel()
               .filter(i -> i % 16 == 6)
-              .limit(100)
+              .limit(100000)
               .boxed()
               .collect(Collectors.toCollection(ArrayDeque::new));
 
@@ -26,15 +26,15 @@ public class Main {
 
   // generate list of sequential numbers
   private static ArrayDeque<Integer> numbers() {
-    return IntStream.rangeClosed(0, 100_000).boxed().collect(Collectors.toCollection(ArrayDeque::new));
+    return IntStream.rangeClosed(0, 1_000_000).boxed().collect(Collectors.toCollection(ArrayDeque::new));
   }
 
   public static void main(String[] args) {
     CacheTrie test = new CacheTrie();
 
    System.out.println("--- test insertions ---");
-   // ArrayDeque<Integer> hashes = hashCollider();
-    ArrayDeque<Integer> hashes = numbers();
+    ArrayDeque<Integer> hashes = hashCollider();
+    //ArrayDeque<Integer> hashes = numbers();
 
     /*ExecutorService thread_pool = Executors.newFixedThreadPool(num_threads);
 
@@ -60,6 +60,6 @@ public class Main {
     //System.out.println("--- test trace ---");
     //test.printTrace();
     System.out.println("--- test cache ---");
-    test.printCache();
+    //test.printCache();
   }
 }

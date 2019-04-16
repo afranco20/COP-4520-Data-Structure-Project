@@ -1,8 +1,13 @@
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class CacheTrie extends CTrieNoCache{
     AtomicReference<Cache> cacheHead = new AtomicReference<>(null);
+    //AtomicReference<Integer> numLevels = new AtomicReference<>(0);
     void inhabit(Cache cache, GenNode val, int hash, int currLevels) {
         if(cache == null) {
             if(currLevels >= 12) {
@@ -23,8 +28,75 @@ public class CacheTrie extends CTrieNoCache{
         }
     }
 
+
+    void sampleLevels(int hash, int level, GenNode curr, CacheNode stats) {
+        int pos = ((hash >>> level) & ((((ANode)curr.node).array).length() - 1));
+        GenNode item = ((ANode) curr.node).array.get(pos);
+        if(item == null) {
+            return;
+        }
+        switch(item.nodeType) {
+            case ANODE:
+            case ENODE:
+                //int val = stats.sample.get(level / 4);
+                stats.sample.getAndIncrement(level / 4);
+                if(item.nodeType.equals(ENODE)) {
+                    sampleLevels(hash, level + 4, ((ENode)item.node).narrow, stats);
+                }
+                else {
+                    sampleLevels(hash, level + 4, item, stats);
+                }
+                break;
+            case FNODE:
+                if((FNode)item.node == null) {
+                    return;
+                }
+                else if(((FNode)item.node).AorS.equals(ANODE)) {
+                    //int fval = stats.sample.get(level / 4);
+                    stats.sample.getAndIncrement(level / 4);
+                    sampleLevels(hash, level + 4, ((FNode)item.node).frozen, stats);
+                }
+                else {
+                    return;
+                }
+                break;
+        }
+    }
+
     void recordCacheMiss() {
-        //System.out.println("Invoke Cache miss");
+        Cache head = cacheHead.get();
+        if(head == null) {
+            return;
+        }
+        //System.out.println("Cache miss");
+        if(head.stats.get().approximateMissCount() > 2048) {
+            //System.out.println(head.stats.get().getPos());
+            Random rand = new Random();
+            for(int i = 0; i < 128; i++) {
+                int randomHash = hash(((Integer) rand.nextInt(Integer.MAX_VALUE)).hashCode());
+                CacheNode stats = cacheHead.get().stats.get();
+                sampleLevels(randomHash, 0, root, stats);
+                rand = new Random();
+            }
+            head.stats.get().resetMissCount();
+            int maxVal = head.stats.get().sample.get(0), maxIndex = 0;
+            int sampleLen = head.stats.get().sample.length();
+            for(int i = 0; i < sampleLen; i++) {
+                if(head.stats.get().sample.get(i) >= maxVal) {
+                    maxVal = head.stats.get().sample.get(i);
+                    maxIndex = i;
+                }
+            }
+            if(head.stats.get().level.get() != (maxIndex * 4)) {
+                Cache newHead = new Cache((maxIndex * 4), head);
+                cacheHead.compareAndSet(head, newHead);
+            }
+            //head.stats.get().resetSample();
+        }
+        else {
+            head.stats.get().bumpMissCount();
+        }
+
     }
 
     boolean completeExpansion(GenNode en, Cache curr) {

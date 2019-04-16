@@ -9,7 +9,7 @@ public class Cache {
     Cache(int level, Cache parent) {
 
         root = new AtomicReferenceArray<>(1 +(1 << level));
-        stats =  new AtomicReference<>(new CacheNode(parent, 8));
+        stats =  new AtomicReference<>(new CacheNode(parent, level));
     }
 
 }
