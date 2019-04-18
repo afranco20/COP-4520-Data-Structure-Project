@@ -40,18 +40,18 @@ class CacheNode
 	val parent: Array<Any>
 	val misses: Array<Int>
 
-******* MODIFIED CACHETRIE CLASS W/ CACHE OBJECT ********	
+******* MODIFIED CACHETRIE CLASS W/ CACHE OBJECT ********
 
 class CacheTrie
 	val root = new ANode(16)
 	var cacheHead: Cache = null
-	
 
--------------- Functions ------------------	
+
+-------------- Functions ------------------
 
 ******* Cache Helper *********
 
-def createCache(level: Int, parent: Cache): Cache = 
+def createCache(level: Int, parent: Cache): Cache =
 	val cache = new Array(1 + (1 << level))
 	val misses = new Array(THROUGHPUT_FACTOR * #CPU)
 	cache[0] = new CacheNode(null, 8, misses)
@@ -81,7 +81,7 @@ def lookup(key: KeyType, hash: Int, level: Int, cur: ANode): ValueType =
 	else if (old is an ANode)
 		return lookup(key, hash, level + 4, old)
 
-	// Reached a node with the same hash bits so far, check if the keys match	
+	// Reached a node with the same hash bits so far, check if the keys match
 	else if (old is an SNode)
 		if (old.key == key)
 			return old.value
@@ -109,7 +109,7 @@ def lookup(key: KeyType): ValueType =
 ******** Insert *********
 
 def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode): Boolean =
-	
+
 	// Get position in ANode according to size of ANode, level and hash code
 	val pos = (h >>> lev) & (cur.length - 1)
 
@@ -172,7 +172,7 @@ def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode):
 					// Restart insertion with the wide ANode in the new ENode
 					return insert(k, v, h, lev, wide, prev)
 
-				// Failed to insert ENode so restart	
+				// Failed to insert ENode so restart
 				else
 					return insert(k, v, h, lev, cur, prev)
 
@@ -208,8 +208,8 @@ def insert(k: KeyType, v: ValueType, h: Int, lev: Int, cur: ANode, prev: ANode):
 	// If FVNode or FNode
 	return false
 
-// Initial call	
-def insert(k: KeyType, v: ValueType) = 
+// Initial call
+def insert(k: KeyType, v: ValueType) =
 	if(!insert(k, v, hash(k), 0, root, null))
 		insert(k, v)
 
@@ -217,7 +217,7 @@ def insert(k: KeyType, v: ValueType) =
 
 // "Slow" lookup
 def lookup(k: KeyType, hash: Int, lev: Int, cur: ANode, lastCachee: Any, cacheLevel: Int) =
-	
+
 	// If a node is at the same level as in the cache
 	if (lev == cacheLevel)
 		inhabit(cache, cur, hash, lev)
@@ -234,7 +234,7 @@ def lookup(k: KeyType, hash: Int, lev: Int, cur: ANode, lastCachee: Any, cacheLe
 	...
 			return lookup(key, hash, level + 4, old.frozen)
 
-def fastLookup(k: KeyType): ValueType = 
+def fastLookup(k: KeyType): ValueType =
 	val h = hash(k)
 
 	// cacheHead is in scope, appears to be global
@@ -289,11 +289,11 @@ def fastLookup(k: KeyType): ValueType =
 		cache = cache[0].parent
 
 	// Could not find in the cache, start at the highest level
-	return lookup(k, h, 0, root, null, topLevel)	
+	return lookup(k, h, 0, root, null, topLevel)
 
 ****** Freeze n Expand ********
 
-def completeExpansion(en: ENode) = 
+def completeExpansion(en: ENode) =
 
 	// Prevent further updates to narrow
 	freeze(en.narrow)
@@ -320,7 +320,7 @@ def freeze(cur: ANode) =
 		if (node == null)
 
 			// If fail to replace, reiterate over entry
-			if (!CAS(cur[i], node, FVNode)) 
+			if (!CAS(cur[i], node, FVNode))
 				i -= 1
 
 		// If there is a non null entry
@@ -362,8 +362,8 @@ def freeze(cur: ANode) =
 
 ******* Inhabit (Populate cache) ********
 
-def inhabit(cache: Array[AnyRef], nv: Any, hash: Int, cacheeLevel: Int) = 
-	
+def inhabit(cache: Array[AnyRef], nv: Any, hash: Int, cacheeLevel: Int) =
+
 	// Create cache only if hash trie has at least a level 12
 	if (cache == null)
 		if (cacheeLevel >= 12)
@@ -390,12 +390,12 @@ def inhabit(cache: Array[AnyRef], nv: Any, hash: Int, cacheeLevel: Int) =
 
 ******* Cache Misses and Sampling ********
 
-// Neither of these functions are linearlizable 
+// Neither of these functions are linearlizable
 // "Lack of consistency tolerable, ... worst case, race condition during sampling
 // could select an incorrect level, but this is rare, and it gets corrected in the
 // next sampling pass."
 
-def recordCacheMiss() = 
+def recordCacheMiss() =
 	val cache = READ(cacheHead)
 
 	// If a cache exists
@@ -415,8 +415,8 @@ def recordCacheMiss() =
 		else
 			WRITE(cn.misses[counterId], count + 1)
 
-def sampleAndAdjustCache(cache: Array<Any>) = 
-	
+def sampleAndAdjustCache(cache: Array<Any>) =
+
 	// Pick random hash code and records the num of SNodes at each level
 	val histogram = sampleSNodesLevels()
 
@@ -428,4 +428,4 @@ def sampleAndAdjustCache(cache: Array<Any>) =
 
 	// Adjust if the most populated level is 1.5 more popular than other level
 	if (histogram[best] > histogram[prev] * 1.5)
-		adjustCacheLevel(best)			
+		adjustCacheLevel(best)
