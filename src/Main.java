@@ -14,11 +14,11 @@ public class Main {
 
     // filters infinite list of integers and collects the first 100 results
     hashes = IntStream.iterate(0, i -> i + 1)
-              .parallel()
-              .filter(i -> i % 16 == 6)
-              .limit(100000)
-              .boxed()
-              .collect(Collectors.toCollection(ArrayDeque::new));
+        .parallel()
+        .filter(i -> i % 16 == 6)
+        .limit(100000)
+        .boxed()
+        .collect(Collectors.toCollection(ArrayDeque::new));
 
     // return list
     return hashes;
@@ -32,7 +32,7 @@ public class Main {
   public static void main(String[] args) {
     CacheTrie test = new CacheTrie();
 
-   System.out.println("--- test insertions ---");
+    System.out.println("--- test insertions ---");
     ArrayDeque<Integer> hashes = hashCollider();
     //ArrayDeque<Integer> hashes = numbers();
 
@@ -46,19 +46,22 @@ public class Main {
     thread_pool.shutdown();
     System.out.println("=== test ===");*/
 
-   for (Integer i : hashes) {
-     // System.out.printf("%n*** INSERTING %d ***%n%n", i);
+    for (Integer i : hashes) {
+      // System.out.printf("%n*** INSERTING %d ***%n%n", i);
+//      test.insert(i, i);
       test.fastInsert(i, i);
     }
 
     System.out.println("--- test lookup ---");
     for (Integer i : hashes) {
       //System.out.println(test.fastLookup(i));
-        test.fastLookup(i);
+//      test.lookup(i);
+      test.fastLookup(i);
     }
 
     //System.out.println("--- test trace ---");
     //test.printTrace();
+
     System.out.println("--- test cache ---");
     //test.printCache();
   }
