@@ -1,9 +1,9 @@
-import java.security.Key;
-import java.util.concurrent.atomic.*;
 public class FNode {
-	ANode frozen;
-	//Object nodeType = FNODE;
-	FNode(ANode node) {
-		frozen = node;
-	}
+  GenNode frozen;
+  Object AorS;
+
+  FNode(GenNode node) {
+    frozen = node;
+    AorS = (node != null) ? node.nodeType : null;
+  }
 }

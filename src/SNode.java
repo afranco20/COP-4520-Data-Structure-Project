@@ -1,16 +1,15 @@
-import java.security.Key;
-import java.util.concurrent.atomic.*;
-public class SNode {
-	int hash;
-	Key key;
-	Object value;
-	AtomicReference<Object> txn;
-	//Object nodeType = SNODE;
+import java.util.concurrent.atomic.AtomicReference;
 
-	SNode (int h, Key k, Object val, Object type) {
-		hash = h;
-		key = k;
-		value = val;
-		txn = new AtomicReference<Object>(type);
-	}
+public class SNode {
+  int hash;
+  Object key;
+  Object value;
+  AtomicReference<GenNode> txn;
+
+  SNode(int hash, Object key, Object value, GenNode type) {
+    this.hash = hash;
+    this.key = key;
+    this.value = value;
+    this.txn = new AtomicReference<>(type);
+  }
 }
