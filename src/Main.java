@@ -1,53 +1,93 @@
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.Vector;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 public class Main {
-  // generate list of sequential numbers
-  private static ArrayDeque<Integer> generate() {
-    ArrayDeque<Integer> list = new ArrayDeque<>();
+  static CacheTrie cacheTrie;
+
+  // generate list of random numbers
+  private static List<Integer> generate(int num_nodes) {
+    List<Integer> list = new Vector<>(num_nodes);
 
     IntStream.iterate(0, i -> i + 1)
-        .limit(1_000_000)
+        .limit(num_nodes)
+        .parallel()
         .forEach(i -> list.add(ThreadLocalRandom.current().nextInt()));
 
     return list;
   }
 
   public static void main(String[] args) {
-    CacheTrie cache_trie = new CacheTrie();
+    benchmark(250_000);
+//    benchmark(500_000);
+//    benchmark(1_000_000);
+  }
 
-    System.out.println("--- test generate ---");
-    ArrayDeque<Integer> list = generate();
+  private static void benchmark(int num_nodes) {
+    List<Integer> list = generate(num_nodes);
+    float[] v1 = {.50f, .75f, .25f};
+    float[] v2 = {.50f, .25f, .75f};
 
+    for (int num_threads = 1; num_threads <= 8; num_threads <<= 1) {
+      cacheTrie = new CacheTrie();
+
+      System.out.printf("=== %d Threads ===%n", num_threads);
+
+      for (int i = 0; i < 3; i++) {
+        distribution(list, num_threads, (int) (num_nodes * v1[i]), (int) (num_nodes * v2[i]));
+      }
+    }
+  }
+
+  private static void distribution(List<Integer> list, int num_threads, int push, int pop) {
     ExecutorService thread_pool;
     long startTime;
     long endTime;
 
-    for (int num_threads = 1; num_threads <= 32; num_threads <<= 1) {
-      thread_pool = Executors.newFixedThreadPool(num_threads);
-      List<Callable<Object>> tasks = new ArrayList<>();
+    List<Callable<Object>> insert_tasks = new ArrayList<>(push);
+    List<Callable<Object>> lookup_tasks = new ArrayList<>(pop);
 
-      list.forEach(i -> {
-        tasks.add(() -> {
-          cache_trie.fastInsert(i, i);
-          return null;
-        });
+    IntStream.range(0, push).forEach(i -> {
+      int temp = list.get(i);
+
+      insert_tasks.add(() -> {
+        cacheTrie.fastInsert(temp, temp);
+        return null;
       });
+    });
 
-      startTime = System.nanoTime();
-      try {
-        thread_pool.invokeAll(tasks);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+    IntStream.range(0, pop).forEach(i -> {
+      int temp = list.get(i % push);
 
-      thread_pool.shutdown();
-      endTime = System.nanoTime();
+      lookup_tasks.add(() -> {
+        cacheTrie.fastLookup(temp);
+        return null;
+      });
+    });
 
-      System.out.printf("%d, %f%n", num_threads, ((double) (endTime - startTime) / 1E6));
+    startTime = System.nanoTime();
+    thread_pool = Executors.newFixedThreadPool(num_threads);
+
+    try {
+      thread_pool.invokeAll(insert_tasks);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
+
+    try {
+      thread_pool.invokeAll(lookup_tasks);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    thread_pool.shutdown();
+    endTime = System.nanoTime();
+
+    System.out.printf("%f%n", ((double) (endTime - startTime) / 1E6));
   }
 }
