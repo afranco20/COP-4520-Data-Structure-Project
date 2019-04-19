@@ -1,18 +1,14 @@
 import java.util.Objects;
 import java.util.logging.Logger;
 
-class CTrieNoCache {
-  static final String ANODE = "ANODE";
-  static final String ENODE = "ENODE";
-  static final String FNODE = "FNODE";
-  static final String SNODE = "SNODE";
+class HashTrie implements Constants{
 
-  final Logger logger = Logger.getLogger(CTrieNoCache.class.getName());
+  final Logger logger = Logger.getLogger(HashTrie.class.getName());
 
   final GenNode root;
   private int count = 0;
 
-  CTrieNoCache() {
+  HashTrie() {
     root = new GenNode(16);
   }
 
@@ -451,16 +447,8 @@ class CTrieNoCache {
 
   // Initial call
   void insert(Object key, Object val) {
-    if (!insert(key, val, hash(key.hashCode()), 0, root, null)) {
-      if (count >= 3) {
-//        System.out.printf("Cannot insert: %d %n", hash(key.hashCode()));
-        return;
-      }
-      count++;
+    if (!insert(key, val, hash(key.hashCode()), 0, root, null)) 
       insert(key, val);
-    }
-
-    count = 0;
   }
 
   void printTrace(GenNode array, int level) {
