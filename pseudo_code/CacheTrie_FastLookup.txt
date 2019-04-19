@@ -1,0 +1,61 @@
+******* CacheTrie::FastLookup *******
+
+SNode fastLookup(k: Key, h: Int)
+
+	var cache = cacheHead
+
+	// If there is no cache, start at the root
+	if (cache == null)
+		return lookup(k, h, 0, root, cache)
+
+	var pos = 1 + (h & (cache.size - 2))
+	var cachee = cache[pos]
+
+	// If there is nothing in the cache, start at the root
+	if (cache == null)
+		return lookup(k, h, 0, root, cache)
+
+	// Find SNode in the cache	
+	else if (cachee is an SNode)
+		var txn = old.txn
+		if (txn is null)
+
+			// Found it
+			if (cachee.key == k)
+				return cachee.value
+
+		// Couldn't find the node w/ key
+		else
+			return lookup(k, h, 0, root, cache)
+
+	// Found another level
+	else if (cachee is an ANode)
+
+		// Find and read the entry with the current bits
+		var cpos = (h >>> level) & (cachee.length - 1)
+		var old = cachee[pos]
+
+		if (old is an SNode)
+			var txn = old.txn
+			if (txn is null)
+				// Found it
+				if (old.key == k)
+					return old
+
+			// Couldn't find the node w/ key
+			else
+				return lookup(k, h, 0, root, cache)
+
+		else if(old is an ENode)
+			completeExpansion(old, cache)
+			return fastLookup(k, h)
+
+	else
+		ERROR
+
+	// Go to regular lookup in any case
+	return lookup(k, h, 0, root, cache)
+
+// Initial Call
+Object fastLookup(k: Key) 
+	fastLookup(k, hash(key))

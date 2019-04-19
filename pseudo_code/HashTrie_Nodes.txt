@@ -1,0 +1,31 @@
+******* Nodes ********
+
+class GenNode
+	var node: Object (SNode | ANode | FNode | ENode)
+	var nodeType: String
+
+class SNode
+	var hash: Int
+	var key: Key
+	var value: Value
+	var txn: GenNode
+
+class ANode
+	var array: Array<GenNode>
+
+class FNode
+	var frozen: GenNode
+	var AorS: String
+
+class ENode
+	var parent: GenNode (ANode)
+	var parentpos: Int
+	var narrow: GenNode (ANode)
+	var hash: Int
+	var level: Int
+	var wide: GenNode (ANode)
+
+******* Hash Trie ********
+
+class HashTrie
+	var root: GenNode (ANode)

@@ -1,0 +1,16 @@
+******* Auxilary Cache ********
+
+class Cache
+	var root: Array<GenNode>
+	var stats: CacheNode
+
+class CacheNode
+	var parent: Cache
+	var misses: Int
+	var level: Int
+	var sample: Array<Int>
+
+******* Cache Trie ********	
+
+class CacheTrie implements HashTrie
+	var cacheHead: Cache

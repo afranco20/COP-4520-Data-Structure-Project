@@ -1,0 +1,39 @@
+******** HashTrie::Lookup ***********
+
+SNode lookup(key: Key, hash: Int, level: Int, curr: ANode)
+
+	// Find position according to the corresponding bits of the hash for the level
+	var pos = (hash >>> level) & (curr.length - 1)
+
+	// Check what is in that position in the current position
+	var old = curr[pos]
+
+	// There is no corresponding key in the cache trie
+	if (old is null || old is an FNode (null))
+		return null
+
+	// There is another level (ANode) so jump to the next level (ANode)
+	else if (old is an ANode || old is an FNode (ANode))
+		return lookup(key, hash, level + 4, old)
+
+	// Reached a node with the same hash bits so far, check if the keys match	
+	else if (old is an SNode || old is an FNode (SNode))
+		if (old.key == key)
+			return old.value
+		else
+			return null
+
+	// If marked for expansion, check what's for sure in the level
+	else if (old is an ENode)
+		var an = old.narrow
+
+		// Linearization point
+		return lookup(key, hash, level + 4, an)
+
+	else
+		ERROR;
+
+
+// Initial call to lookup
+Object lookup(key: Key)
+	lookup(key, hash(key), 0, root)

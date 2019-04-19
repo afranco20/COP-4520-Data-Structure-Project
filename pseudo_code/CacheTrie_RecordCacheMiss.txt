@@ -1,0 +1,23 @@
+******* CacheTrie::RecordCacheMiss ********
+
+void recordCacheMiss() 
+	var cache = cacheHead
+
+	// If a cache exists
+	if (cache != null)
+
+		var stats = cache[0]
+
+		// Reset counter and adjust the cache level
+		if (stats.approximateMissCount() > MAX_MISSES)
+
+			stats.resetMissCount()
+
+			// Sample the levels with a constant number of random hashes that are reachable 
+			// given the cache head, then updating the stats.sample and adjusting the cacheHead
+			// according to the "most" frequently accessed level
+			sampleAndAdjustCache(cache, stats)
+
+		// Increase the miss counter for the current cache
+		else
+			stats.bumpMissCount()

@@ -1,0 +1,115 @@
+******** HashTrie::Insert *********
+
+Boolean insert(k: Key, v: Value, h: Int, lev: Int, curr: ANode, prev: ANode)
+	
+	// Find position according to the corresponding bits of the hash for the level
+	var pos = (h >>> lev) & (curr.length - 1)
+
+	// Check what is at the current position
+	var old = curr[pos]
+
+	// There's nothing here, so try to insert
+	if (old == null)
+		var sn = new SNode(h, k, v, null)
+		// Check nothing has changed, then insert
+		if (curr.CAS(pos, old, sn))
+			return true
+		// Collision, restart
+		else
+			return insert(k, v, h, lev + 4, curr, prev)
+
+	// If there is pointer to another level at the position, jump to next level
+	else if (old is an ANode)
+		return insert(k, v, h, lev + 4, old, curr)
+
+	// If we found an entry with the current hash bits
+	else if (old is an SNode)
+
+		// Check if the current node has yet to update
+		var txn = old.txn
+
+		// We're allowed to modify the node
+		if (txn is null)
+
+			// If we want to insert a node with the same key
+			if (old.key == key)
+
+				var sn = new SNode(h, k, v, null)
+
+				// Check that everything is the same and insert new SNode in txn field of 
+				// the current SNode for logical insertion
+				if(old.txn.CAS(null, sn))
+
+					// Physically update the entry to the new SNode
+					curr.CAS(pos, old, sn)
+					return true
+
+				// Failed to logically insert new SNode so restart
+				else
+					return insert(k, v, h, lev, curr, prev)
+
+			// Check if the current level is narrow, create ENode to start expansion
+			else if (curr.length == 4)
+
+				// Save the position from the previous level
+				var ppos = (h >>> (lev - 4)) & (prev.length - 1)
+
+				var en = new ENode(prev, ppos, curr, h, lev)
+
+				// Check that the previous level still containers the pointer to the current level 
+				// and then replace it with a pointer to the expansion node
+				if(prev.CAS(ppos, curr, en))
+
+					completeExpansion(en)
+					var wide = en.wide
+
+					// Restart insertion with the newly expanded level
+					return insert(k, v, h, lev, wide, prev)
+
+				// Failed to insert the expansion node to restart	
+				else
+					return insert(k, v, h, lev, curr, prev)
+
+			// If the current level is already wide, create a new level at the position
+			else
+				var sn = new SNode(h, k, v, null)
+
+				// Creates a new level with the current SNode entry and new SNode entry
+				var an = createANode(old, sn, lev + 4)
+
+				// Check if nothing has changed and insert the newly created level into the txn field of 
+				// the current SNode for logical insertion
+				if(old.txn.CAS(null, an))
+
+					// Physical insertion of the newly created level
+					curr.CAS(pos, old, an)
+
+					// Update the txn field back to null to prevent infinite loop due to Java's implicit pointers
+					old.txn.CAS(an, null)
+
+					return true
+
+				// Failed to logically insert new level
+				else
+					return insert(k, v, h, lev, cur, prev)
+
+		// Frozen SNode so unable to make changes, returns back up to the ENode in control of this SNode
+		else if (txn is an FNode (SNode))
+			return false
+
+		// Help with concurrent physical insertion if logical insertion was successful 
+		else
+			// Physical insertion from the txn field
+			curr.CAS(pos, old, txn)
+			return insert(k, v, h, lev, cur, prev)
+
+	// Help concurrent expansion
+	else if (old is an ENode)
+		completeExpansion(old)
+
+	// If FNode, don't insert because the corresponding slot is "frozen"
+	return false
+
+// Initial call	
+void insert(k: Key, v: Value) 
+	if(!insert(k, v, hash(k), 0, root, null))

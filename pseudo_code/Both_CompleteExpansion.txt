@@ -1,0 +1,31 @@
+****** HashTrie/CacheTrie::CompleteExpansion ********
+
+// HashTrie version, CacheTrie's completeExpansion calls this as well
+
+boolean completeExpansion(en: ENode) 
+
+	// Prevent further updates to narrow
+	freeze(en.narrow)
+
+	var wide = new ANode(16)
+
+	// Copy values of narrow into wide
+	copy(en.narrow, wide, en.level)
+
+	// Need to update txn fields of prev frozen SNodes for Java's implicit pointers
+	unfreeze(en.narrow)
+
+	// Fail to update wide in ENode, so use the wide that is there
+	if (!CAS(en.wide, null, wide))
+		wide = en.wide
+
+	// Replace the ENode, in the ANode that contains it, with wide
+	return en.parent.CAS(en.parentpos, en, wide)
+
+
+// CacheTrie version that is dependant on HashTrie's implementation
+
+void completeExpansion(en: ENode, curr: Cache)
+	
+	if(completeExpansion(en))
+		inhabit(curr, en.wide, en.hash, en.level)

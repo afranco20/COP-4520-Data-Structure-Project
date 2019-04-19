@@ -1,0 +1,56 @@
+******** HashTrie::Freeze *********
+
+void freeze(cur: ANode)
+	var i = 0
+	while (i < cur.length)
+		var node = cur[i]
+
+		// If null entry, replace with FNode (null)
+		if (node is null)
+
+			// If fail to replace, reiterate over entry
+			if (!cur.CAS(i, node, FVNode)) 
+				i -= 1
+
+		// If there is a non null entry
+		else if (node is an SNode)
+			var txn = node.txn
+
+			// If entry is not pending for any updates
+			if (txn is null)
+
+				var fn = new FNode(node)
+
+				// Fail to insert frozen node into txn for logical insertion, reiterate over entry
+				if (!node.txn.CAS(null, fn))
+					i -= 1
+
+			// If pending update is anything but a frozen entry
+			else if (txn is not an FNode (SNode))
+
+				// Physically insert what's in txn and then reiterate over the entry
+				cur.CAS(i, node, txn)
+				i -= 1
+
+		// If there is another level, freeze the level and reiterate over it to freeze its' children
+		else if (node is an ANode)
+			var fn = new FNode(node)
+
+			// Replace current entry with new FNode and reiterate over entry
+			cur.CAS(i, node, fn)
+			i -= 1
+
+		// Recursively freeze a frozen level's children 
+		else if (node is an FNode (SNode))
+			freeze(node.frozen)
+
+		// Expand an expansion node first to prevent possible freezing of the same nodes
+		else if (node is an ENode)
+			completeExpansion(node)
+			i -= 1
+
+		else 
+			ERROR
+
+		// Continue to the next entry to possibly freeze
+		i += 1

@@ -1,0 +1,28 @@
+******* CacheTrie::Inhabit ********
+
+void inhabit(cache: ANode, nv: ANode, hash: Int, currLevel: Int)
+	
+	// Create new cache level only if hash trie has a level at or deeper than 12
+	if (cache == null)
+		if (currLevel >= 12)
+
+			// Intialize cache with one level less than the least amount of levels needed
+			// Also create a CacheNode at position 0
+			cache = new Cache(8, null)
+
+			// Update the cacheHead with the new cache
+			cacheHead.CAS(null, cache)
+
+			// Recursively call to insert hash trie levels into the cache
+			inhabit(cache, nv, hash, currLevel)
+
+	// Cache exists
+	else
+		var length = cache.length
+		var cacheLevel = countTrailingZeros(length - 1)
+		if (cacheLevel == currLevel)
+			var pos = 1 + (hash & (cache.length - 2))
+
+			// Do not need CAS, just need the most recent value since Cache
+			// does not be entirely consistent
+			cache.set(pos, nv)

@@ -1,0 +1,31 @@
+******* CacheTrie::Lookup *******
+
+SNode lookup(k: Key, hash: Int, lev: Int, curr: ANode, currCache: Cache)
+	
+	// If the cache is non null and cache level is the same as the current level
+	if (currCache != null && ((1 << lev) == currCache.length - 1))
+		inhabit(cache, curr, hash, lev)
+
+	// Find position according to the corresponding bits of the hash for the level
+	var pos = (h >>> lev) & (curr.length - 1)
+	
+	var old = curr[pos]
+
+	// There is another level so jump to the next level
+	if(old is an ANode || FNode (ANode) || ENode)
+		return lookup(key, hash, lev + 4, old, currCache)
+
+	else if(old is an SNode || old is an FNode (SNode))
+
+		// If not contained at same level as cache or just one deeper
+		if (lev is not in range[cacheLevel, cacheLevel + 4])
+			recordCacheMiss()
+
+		// If the cache is non null and next level is the same as the cache level
+		if (cache level is equal to current level + 4)
+			inhabit(cache, old, hash, lev + 4)
+
+		if (old.node.key == key)
+			return old.node
+	else
+		ERROR

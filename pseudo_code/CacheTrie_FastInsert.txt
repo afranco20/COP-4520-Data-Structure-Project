@@ -1,0 +1,111 @@
+******* CacheTrie::FastInsert *******
+
+void fastInsert(key: Key, value: Value, hash: Int, curr: Cache, prev: Cache)
+	
+	// Cache DNE
+	if(curr is null)
+		insert(key, value)
+	// Cache exists
+	else
+		var pos = 1 + (hash & (curr.length - 1))
+
+		var item = curr[pos]
+
+		var level = curr.length - 1
+
+		// Found nothing so check the parent Cache
+		if(item is null)
+			// Contains the pointer to the parent Cache and miss statistics
+			var stats = curr[0]
+			fastInsert(key, value, hash, stats.parent, curr)
+
+		// Another level in current cache
+		else if(item is an ANode)
+			var aPos = (hash >>> level) & (item.length - 1)
+			var old = item[aPos]
+
+			// There is no entry, so attempt to insert
+			if(old is null)
+				var sn = new SNode(hash, key, value, null)
+
+				// Succesful insertion
+				if(item.CAS(aPos, old, sn))
+					return
+
+				// Conflict, restart insertion	
+				else
+					fastInsert(key, value, hash, curr, prev)
+
+			// There is yet another level so we'll hand it off to normal insert
+			else if(old is an ANode)
+				if(!insert(key, value, hash, level + 4, old, item, prev))
+					fastInsert(key, value, hash, curr, prev)
+
+			// Found a corresponding entry at this level
+			else if(old is an SNode)
+				var txn = item.txn
+
+				// The entry is not pending for any updates
+				if(txn is null)
+					if(old.key == key)
+						var sn = new SNode(hash, key, value, null)
+
+						// Insert into txn field for logical insertion
+						if(old.txn.CAS(null, sn))
+
+							// Replace the entry with the new SNode for physical insertion
+							item.CAS(aPos, old, sn)
+
+						// Failed to logically insert the new SNode, so restart	
+						else
+							fastInsert(key, value, hash, curr, prev)
+
+					// Needs to expand before insertion but need parent of item, so restart 
+					// insertion with parent
+					else if(item.length == 4)
+						var stats = curr[0]
+						fastInsert(key, value, hash, stats.parent, curr)
+
+					// Current level is a wide and no matching key for the entry, create another 
+					// level at the entry
+					else
+						var sn = new SNode(hash, key, value, null)
+						var newLevel = createANode(old, sn, level + 4)
+
+						// Insert the new level into txn field of current entry for logical insertion
+						if(old.txn.CAS(null, newLevel))
+
+							// Physical insertion
+							item.CAS(aPos, old, newLevel)
+
+							// Update the txn field back to null to prevent infinite loop due to 
+							// Java's implicit pointers
+							old.txn.CAS(newLevel, null)
+
+						// Failed to logically insert the new level so restart
+						else 
+							fastInsert(key, value, hash, curr, prev)
+
+				// Some level is still expanding so we do normal insert to help expand since we don't 
+				// know the "frozen" depth of this node
+				else if(txn is an FNode (SNode))
+					insert(key, value)
+
+				// Otherwise, help with concurrent physical insertion	
+				else
+					item.CAS(aPos, old, txn)
+					fastInsert(key, value, hash, curr, prev)
+
+			// The entry at the level is either an FNode or ENode, but we don't have a path to 
+			// the parent node in fastInsert
+			else
+				insert(key, value)
+
+		// Found an SNode in the base of the current cache but we need the parent to possibly replace 
+		// this entry
+		else if(item is an SNode)
+			var stats = curr[0]
+			fastInsert(key, value, hash, parent, curr)
+
+		else
+			ERROR
