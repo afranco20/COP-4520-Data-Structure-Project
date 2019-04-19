@@ -17,12 +17,12 @@ public class GenNode {
     node = new ANode(length);
     nodeType = ANODE;
   }
-
+  
   GenNode(GenNode anode) {
     node = new FNode(anode);
     nodeType = FNODE;
   }
-
+  
   GenNode(int hash, Object key, Object value, GenNode type) {
     node = new SNode(hash, key, value, type);
     nodeType = SNODE;

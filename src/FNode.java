@@ -1,4 +1,3 @@
-    
 public class FNode {
   GenNode frozen;
   Object AorS;
@@ -8,3 +7,4 @@ public class FNode {
     AorS = (node != null) ? node.nodeType : null;
   }
 }
+
