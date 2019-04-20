@@ -34,7 +34,7 @@ public class Main {
     float[] v2 = {.50f, .25f, .75f};
 
     for (int i = 0; i < 3; i++) {
-      System.out.printf("Distribution (%.0f%% / %.0f%%)", (v1[i] * 100), (v2[i] * 100));
+      System.out.printf("Distribution (%.0f%% / %.0f%%)%n", (v1[i] * 100), (v2[i] * 100));
 
       for (int num_threads = 1; num_threads <= 8; num_threads <<= 1) {
         cacheTrie = new CacheTrie();
