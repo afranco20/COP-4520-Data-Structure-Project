@@ -33,12 +33,11 @@ public class Main {
     float[] v1 = {.50f, .75f, .25f};
     float[] v2 = {.50f, .25f, .75f};
 
-    for (int num_threads = 1; num_threads <= 8; num_threads <<= 1) {
-      cacheTrie = new CacheTrie();
+    for (int i = 0; i < 3; i++) {
+      System.out.printf("Distribution (%.0f%% / %.0f%%)", (v1[i] * 100), (v2[i] * 100));
 
-      System.out.printf("=== %d Threads ===%n", num_threads);
-
-      for (int i = 0; i < 3; i++) {
+      for (int num_threads = 1; num_threads <= 8; num_threads <<= 1) {
+        cacheTrie = new CacheTrie();
         distribution(list, num_threads, (int) (num_nodes * v1[i]), (int) (num_nodes * v2[i]));
       }
     }
@@ -88,6 +87,6 @@ public class Main {
     thread_pool.shutdown();
     endTime = System.nanoTime();
 
-    System.out.printf("%f%n", ((double) (endTime - startTime) / 1E6));
+    System.out.printf("%d, %f%n", num_threads, ((double) (endTime - startTime) / 1E6));
   }
 }
