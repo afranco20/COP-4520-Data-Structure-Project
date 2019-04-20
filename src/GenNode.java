@@ -1,14 +1,4 @@
-
-import org.deuce.Atomic;
-
-public class GenNode {
-  private static final String ANODE = "ANODE";
-  private static final String ENODE = "ENODE";
-  private static final String FNODE = "FNODE";
-  private static final String FSNODE = "FSNODE";
-  private static final String FVNODE = "FVNODE";
-  private static final String NOTXN = "NOTXN";
-  private static final String SNODE = "SNODE";
+public class GenNode implements Constants{
 
   Object node;
   String nodeType;

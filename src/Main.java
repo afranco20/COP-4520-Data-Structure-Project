@@ -1,72 +1,94 @@
-import java.util.ArrayDeque;
-import java.util.concurrent.Executor;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Vector;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import org.deuce.Atomic;
 
 public class Main {
-  private static final int num_threads = 8;
+  static CacheTrie cacheTrie;
 
-  // generate list of numbers with same hash
+   // generate list of random numbers
   @Atomic
-  private static ArrayDeque<Integer> hashCollider() {
-    ArrayDeque<Integer> hashes;
+ private static List<Integer> generate(int num_nodes) {
+    List<Integer> list = new Vector<>(num_nodes);
 
-    // filters infinite list of integers and collects the first 100 results
-    hashes = IntStream.iterate(0, i -> i + 1)
+    IntStream.iterate(0, i -> i + 1)
+        .limit(num_nodes)
         .parallel()
-        .filter(i -> i % 16 == 6)
-        .limit(100000)
-        .boxed()
-        .collect(Collectors.toCollection(ArrayDeque::new));
+        .forEach(i -> list.add(ThreadLocalRandom.current().nextInt()));
 
-    // return list
-    return hashes;
+    return list;
   }
 
-  // generate list of sequential numbers
-  @Atomic
-  private static ArrayDeque<Integer> numbers() {
-    return IntStream.rangeClosed(0, 1_000_000).boxed().collect(Collectors.toCollection(ArrayDeque::new));
-  }
-  @Atomic
   public static void main(String[] args) {
-    CacheTrie test = new CacheTrie();
+    benchmark(250_000);
+//    benchmark(500_000);
+//    benchmark(1_000_000);
+  }
 
-    System.out.println("--- test insertions ---");
-    ArrayDeque<Integer> hashes = hashCollider();
-    //ArrayDeque<Integer> hashes = numbers();
+  private static void benchmark(int num_nodes) {
+    List<Integer> list = generate(num_nodes);
+    float[] v1 = {.50f, .75f, .25f};
+    float[] v2 = {.50f, .25f, .75f};
 
-    ExecutorService thread_pool = Executors.newFixedThreadPool(num_threads);
+    for (int i = 0; i < 3; i++) {
+      System.out.printf("Distribution (%.0f%% / %.0f%%)%n", (v1[i] * 100), (v2[i] * 100));
 
-    for (int i = 0; i < 1_000_000; i++) {
-      final int k = i;
-      thread_pool.submit(() -> test.fastInsert(k, k));
-      thread_pool.submit(() -> test.fastLookup(k));
+      for (int num_threads = 1; num_threads <= 8; num_threads <<= 1) {
+        cacheTrie = new CacheTrie();
+        distribution(list, num_threads, (int) (num_nodes * v1[i]), (int) (num_nodes * v2[i]));
+    }
+    }
+  }
+  @Atomic
+  private static void distribution(List<Integer> list, int num_threads, int push, int pop) {
+    ExecutorService thread_pool;
+    long startTime;
+    long endTime;
+
+    List<Callable<Object>> insert_tasks = new ArrayList<>(push);
+    List<Callable<Object>> lookup_tasks = new ArrayList<>(pop);
+
+    IntStream.range(0, push).forEach(i -> {
+      int temp = list.get(i);
+
+      insert_tasks.add(() -> {
+        cacheTrie.fastInsert(temp, temp);
+        return null;
+      });
+    });
+
+    IntStream.range(0, pop).forEach(i -> {
+      int temp = list.get(i % push);
+
+      lookup_tasks.add(() -> {
+        cacheTrie.fastLookup(temp);
+        return null;
+      });
+    });
+
+    startTime = System.nanoTime();
+    thread_pool = Executors.newFixedThreadPool(num_threads);
+
+    try {
+      thread_pool.invokeAll(insert_tasks);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+
+    try {
+      thread_pool.invokeAll(lookup_tasks);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
     }
 
     thread_pool.shutdown();
-    System.out.println("=== test ===");
+    endTime = System.nanoTime();
 
-    /*for (Integer i : hashes) {
-      // System.out.printf("%n*** INSERTING %d ***%n%n", i);
-//      test.insert(i, i);
-      test.fastInsert(i, i);
-    }
-
-    System.out.println("--- test lookup ---");
-    for (Integer i : hashes) {
-      //System.out.println(test.fastLookup(i));
-//      test.lookup(i);
-      test.fastLookup(i);
-    }
-
-    //System.out.println("--- test trace ---");
-    //test.printTrace();
-
-    System.out.println("--- test cache ---");
-    //test.printCache();*/
+    System.out.printf("%d, %f%n", num_threads, ((double) (endTime - startTime) / 1E6));
   }
 }

@@ -2,7 +2,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 import org.deuce.Atomic;
 
-public class CacheTrie extends CTrieNoCache {
+public class CacheTrie extends HashTrie {
   private final AtomicReference<Cache> cacheHead = new AtomicReference<>(null);
 
   // AtomicReference<Integer> numLevels = new AtomicReference<>(0);
